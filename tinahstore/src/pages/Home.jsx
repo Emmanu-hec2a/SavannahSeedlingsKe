@@ -89,8 +89,8 @@ export default function Home() {
       <div className="trust-strip">
         <div className="container trust-grid">
           {[
-            ['truck', 'Delivery Across Kenya', 'Quoted on WhatsApp'],
-            ['mapPin', 'Murang\'a Nursery', 'Nairobi-Nyeri Highway'],
+            ['truck', 'Delivery Across Africa', 'Quoted on WhatsApp'],
+            ['mapPin', 'Nairobi Nursery', 'Nairobi-Nyeri Highway'],
             ['leaf', 'Certified Grafted', 'High Yield & Fast Fruiting'],
             ['shield', 'Order on WhatsApp', '+254 710 583 989'],
           ].map(([icon, title, copy]) => (
@@ -150,8 +150,8 @@ export default function Home() {
             <div className="art about-panel">
               <SeedlingIllustration color="#2E7D32" detailed />
               <div className="about-stats">
-                <div><strong>Kenya-wide</strong><span>Delivery arranged on WhatsApp</span></div>
-                <div><strong>2 Locations</strong><span>Kasarani & Murang'a</span></div>
+                <div><strong>Africa-wide</strong><span>Delivery arranged on WhatsApp</span></div>
+                <div><strong>Our Locations</strong><span>Kasarani-Nairobi & Murang'a</span></div>
                 <div><strong>Certified</strong><span>Grafted varieties</span></div>
               </div>
             </div>

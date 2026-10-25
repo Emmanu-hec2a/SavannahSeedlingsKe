@@ -6,4 +6,4 @@ Disallow: /account
 Disallow: /checkout
 Disallow: /confirmation
 
-Sitemap: https://tinahstore.store/sitemap.xml
+Sitemap: https://savannahseedlings.com/sitemap.xml
