@@ -28,8 +28,8 @@ ALLOWED_HOSTS = env.list(
 # settings.py
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://api.tinahstore.store",
-    "https://tinahstore.store",  # Good practice to include your frontend too
+    "https://api.savannahseedlings.com",
+    "https://savannahseedlings.com",  # Good practice to include your frontend too
 ]
 
 
@@ -211,12 +211,10 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = env.list(
         'CORS_ALLOWED_ORIGINS',
         default=[
-            'https://tinahstore.co.ke',
-            'https://www.tinahstore.co.ke',
-            'https://tinahstore.pages.dev',
-            'https://tinahstore.store',
-            'https://admin.tinahstore.store',
-            'https://admin-tinahstore.pages.dev',
+            'https://savannahseedlings.com',
+            'https://admin.savannahseedlings.com',
+            'https://savannahseedlingske.utonga.workers.dev',
+            'https://savannahseedlingske-admin.utonga.workers.dev',
         ]
     )
 if DEBUG:
