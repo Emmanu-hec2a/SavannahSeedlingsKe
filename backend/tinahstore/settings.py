@@ -17,7 +17,8 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # ── Core ──────────────────────────────────────────────────────────────────────
 
 SECRET_KEY = env('SECRET_KEY')
-DEBUG       = env('DEBUG')
+# Prefer the namespaced flag: Windows tooling can export an unrelated DEBUG=release.
+DEBUG       = env.bool('DJANGO_DEBUG', default=env.bool('DEBUG'))
 
 ALLOWED_HOSTS = env.list(
     'ALLOWED_HOSTS',

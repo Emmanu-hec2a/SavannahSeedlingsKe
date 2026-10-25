@@ -5,6 +5,7 @@ import { authService } from '../services/auth';
 import { AdminContext } from '../context/AdminContext';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
+import { clearAdminSession } from '../services/adminSession';
 
 const Settings = () => {
   const { user } = useContext(AdminContext);
@@ -40,8 +41,9 @@ const Settings = () => {
     setChanging(true);
     try {
         await authService.changePassword(passData.old, passData.new);
-        toast.success('Password updated successfully');
+        toast.success('Password updated. Sign in again with your new password.');
         setPassData({ old: '', new: '', confirm: '' });
+        clearAdminSession();
     } catch (err) {
         toast.error(err.response?.data?.detail || 'Failed to change password');
     } finally {

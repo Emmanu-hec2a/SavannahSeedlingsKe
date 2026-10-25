@@ -19,7 +19,14 @@ def user_details(user):
     return {'id': user.pk, 'username': user.get_username(), 'email': user.email, 'is_staff': user.is_staff}
 
 
-class AdminLoginView(APIView):
+class PrivateAdminAPIView(APIView):
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response['Cache-Control'] = 'no-store'
+        return response
+
+
+class AdminLoginView(PrivateAdminAPIView):
     authentication_classes = []
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
@@ -34,11 +41,12 @@ class AdminLoginView(APIView):
         raw_token = secrets.token_urlsafe(32)
         expires_at = timezone.now() + timedelta(seconds=settings.ADMIN_SESSION_TTL_SECONDS)
         AdminSession.objects.filter(user=user, expires_at__lte=timezone.now()).delete()
-        AdminSession.objects.create(user=user, token_digest=sha256(raw_token.encode()).hexdigest(), expires_at=expires_at)
+        AdminSession.objects.create(user=user, token_digest=sha256(raw_token.encode()).hexdigest(),
+                                    password_signature=user.get_session_auth_hash(), expires_at=expires_at)
         return Response({'token': raw_token, 'user': user_details(user), 'expires_at': expires_at})
 
 
-class AdminSessionView(APIView):
+class AdminSessionView(PrivateAdminAPIView):
     authentication_classes = [AdminSessionAuthentication]
     permission_classes = [permissions.IsAdminUser]
 
@@ -47,12 +55,16 @@ class AdminSessionView(APIView):
 
 
 class AdminLogoutView(AdminSessionView):
+    http_method_names = ['post', 'options']
+
     def post(self, request):
         request.auth.delete()
         return Response(status=204)
 
 
 class AdminPasswordView(AdminSessionView):
+    http_method_names = ['post', 'options']
+
     @transaction.atomic
     def post(self, request):
         old_password = request.data.get('old_password')

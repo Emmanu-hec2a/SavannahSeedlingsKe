@@ -1,5 +1,6 @@
 from hashlib import sha256
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
 from rest_framework.authentication import BaseAuthentication, get_authorization_header
 from rest_framework.exceptions import AuthenticationFailed
 from .models import AdminSession
@@ -19,7 +20,8 @@ class AdminSessionAuthentication(BaseAuthentication):
             session = AdminSession.objects.select_related('user').get(token_digest=digest)
         except AdminSession.DoesNotExist:
             raise AuthenticationFailed('Invalid admin session. Please sign in again.')
-        if session.expires_at <= timezone.now() or not session.user.is_active or not session.user.is_staff:
+        if (session.expires_at <= timezone.now() or not session.user.is_active or not session.user.is_staff or
+                not constant_time_compare(session.password_signature, session.user.get_session_auth_hash())):
             session.delete()
             raise AuthenticationFailed('Your admin session has ended. Please sign in again.')
         return session.user, session

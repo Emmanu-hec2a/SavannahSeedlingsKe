@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AdminProvider } from './context/AdminContext';
+import { AdminProvider, AdminContext } from './context/AdminContext';
+import SessionStatus from './components/SessionStatus';
 
 // Pages
 import Login from './pages/Login';
@@ -16,10 +17,11 @@ import Delivery from './pages/Delivery';
 import Settings from './pages/Settings';
 
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('ts_admin_token');
+  const { user, loading, sessionError } = useContext(AdminContext);
   const location = useLocation();
 
-  if (!token) {
+  if (loading || sessionError) return <SessionStatus />;
+  if (!user?.is_staff) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

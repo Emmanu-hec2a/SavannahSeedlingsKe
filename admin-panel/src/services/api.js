@@ -1,14 +1,18 @@
 import axios from 'axios';
+import { clearAdminSession, getAdminToken } from './adminSession';
+
+const origin = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL + '/api/v1',
+  baseURL: origin.endsWith('/api/v1') ? origin : `${origin}/api/v1`,
+  timeout: 15000,
 });
 
 // Request interceptor: attach Authorization header
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('ts_admin_token');
-  if (token) {
-    config.headers.Authorization = `Token ${token}`;
+  const token = getAdminToken();
+  if (token && !config.skipAdminAuth) {
+    config.headers.Authorization = `AdminToken ${token}`;
   }
   return config;
 });
@@ -17,9 +21,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('ts_admin_token');
-      window.location.href = '/login';
+    const currentToken = getAdminToken();
+    if (error.response?.status === 401 && currentToken &&
+        error.config?.headers?.Authorization === `AdminToken ${currentToken}`) {
+      clearAdminSession();
     }
     return Promise.reject(error);
   }

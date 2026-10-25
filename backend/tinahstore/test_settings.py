@@ -1,4 +1,4 @@
-"""Isolated checkout tests: never connect to the configured application database."""
+"""Isolated application tests: never connect to the configured application database."""
 from .settings import *
 
 DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}}

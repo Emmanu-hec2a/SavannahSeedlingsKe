@@ -141,7 +141,7 @@ p{color:var(--ink)}
 .brand-mark{flex:0 0 auto;width:42px;height:42px;border-radius:50%;object-fit:contain;background:var(--surface);box-shadow:0 0 0 1px var(--hairline)}
 .brand-mark-tagline{width:52px;height:52px}
 .brand-copy{display:flex;flex-direction:column;justify-content:center;min-width:0}
-.brand-name{font-size:20px;line-height:1.05;white-space:nowrap;letter-spacing:-.035em}
+.brand-name{font-size:22px;font-weight:700;font-style:normal;line-height:1.05;white-space:nowrap;letter-spacing:-.035em}
 .brand-lockup .brand-name span{font-style:normal}
 .brand-lockup .brand-name span:last-child{font-style:italic}
 .site-header .brand-name > span:first-child{color:var(--teal-ink)}
@@ -179,7 +179,7 @@ p{color:var(--ink)}
   .logo { font-size: 20px; }
   .site-header .brand-lockup{gap:8px}
   .site-header .brand-mark{width:34px;height:34px}
-  .site-header .brand-name{font-size:17px;letter-spacing:-.02em}
+  .site-header .brand-name{font-size:19px;letter-spacing:-.02em}
   .main-nav { display: none; }
   .mobile-menu-dialog{
     position:fixed;inset:0 0 0 auto;margin:0;width:min(360px,calc(100vw - 24px));max-width:none;
@@ -195,7 +195,7 @@ p{color:var(--ink)}
   }
   .mobile-menu-logo .brand-lockup{gap:7px}
   .mobile-menu-logo .brand-mark{width:28px;height:28px}
-  .mobile-menu-logo .brand-name{font-size:15px;line-height:1.2;font-weight:600}
+  .mobile-menu-logo .brand-name{font-size:16px;line-height:1.2;font-weight:700}
   .mobile-menu-logo .brand-name > span:first-child{color:var(--teal-ink)}
   .mobile-menu-logo .brand-name > span:last-child{color:var(--brass)}
   .mobile-menu-close{
@@ -259,7 +259,7 @@ p{color:var(--ink)}
   .site-header .brand-lockup{width:auto;gap:7px}
   .site-header .brand-mark{display:block;width:28px;height:28px;box-shadow:0 0 0 1px var(--hairline)}
   .site-header .brand-copy{flex:0 0 auto}
-  .site-header .brand-name{font-size:clamp(14px,3.8vw,16px);line-height:1.2;letter-spacing:-.025em;white-space:nowrap}
+  .site-header .brand-name{font-size:clamp(15px,4.25vw,17px);line-height:1.2;letter-spacing:-.025em;white-space:nowrap}
   .site-header .brand-name span{display:inline}
   .mobile-floating-actions{
     position:fixed;right:14px;bottom:calc(72px + env(safe-area-inset-bottom));
@@ -554,7 +554,7 @@ p{color:var(--ink)}
 .footer-brand{min-width:0}
 .footer-brand .logo{color:#e8f5e9;margin-bottom:14px;display:inline-flex;max-width:100%}
 .footer-brand .brand-lockup{min-width:0;max-width:100%;white-space:normal}
-.footer-brand .brand-name{font-size:clamp(17px,1.65vw,20px);font-weight:600;font-style:normal;line-height:1.2;color:#e8f5e9}
+.footer-brand .brand-name{font-size:clamp(19px,1.8vw,22px);font-weight:700;font-style:normal;line-height:1.2;color:#e8f5e9}
 .footer-brand .brand-name span{color:inherit}
 .footer-brand .brand-name span:last-child{color:#f39c12}
 .footer-brand .brand-tagline{margin-top:5px;font-family:var(--font-body);font-size:11px;font-weight:400;font-style:normal;line-height:1.6;letter-spacing:.02em;color:var(--footer-text);white-space:normal}
@@ -765,7 +765,7 @@ p{color:var(--ink)}
 .checkout-header{border-bottom:1px solid var(--hairline);padding:22px 0}
 .checkout-header .container{display:flex;align-items:center;justify-content:space-between}
 .checkout-header .secure-pill{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--teal-mid)}
-.checkout-header .brand-name{font-weight:600}
+.checkout-header .brand-name{font-weight:700}
 .checkout-header .brand-name > span:first-child{color:var(--teal-ink)}
 
 .steps{display:flex;align-items:center;gap:10px;margin:36px 0 8px}
@@ -829,7 +829,7 @@ p{color:var(--ink)}
   .checkout-header .logo{font-size:18px}
   .checkout-header .brand-lockup{gap:7px}
   .checkout-header .brand-mark{width:28px;height:28px}
-  .checkout-header .brand-name{font-size:16px}
+  .checkout-header .brand-name{font-size:18px}
   .checkout-header .secure-pill{font-size:11px}
   .checkout-layout{gap:28px}
   .checkout-page .steps{gap:6px}
