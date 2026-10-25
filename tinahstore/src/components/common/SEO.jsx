@@ -9,13 +9,13 @@ export default function SEO({
   type = 'website',
   schemaData
 }) {
-  const siteName = 'TinahStore';
-  const defaultDescription = 'Hand-finished leather and canvas pieces, designed in Nairobi for everyday movement. Shop high-quality totes, backpacks, and crossbody bags.';
-  const defaultKeywords = 'leather bags Nairobi, canvas bags, handmade bags Kenya, TinahStore, luxury totes, artisan bags';
-  const defaultImage = 'https://tinahstore.store/og-image.png'; // Make sure to provide a default OG image
-  const siteUrl = 'https://tinahstore.store';
+  const siteName = 'Savannah Seedlings';
+  const defaultDescription = 'Seeding Africa for Sustainable fruit farming. Premium certified grafted fruit seedlings in Kenya including Hass Avocado, Pixie Orange, Kent Mango & Yellow Passion.';
+  const defaultKeywords = 'grafted seedlings Kenya, Hass Avocado seedlings, Pixie Orange seedlings, fruit seedlings Nairobi, Muranga nursery, Savannah Seedlings';
+  const defaultImage = 'https://savannahseedlings.co.ke/og-image.png';
+  const siteUrl = 'https://savannahseedlings.co.ke';
 
-  const fullTitle = title ? `${title} | ${siteName}` : `TinahStore | Bags that carry more than your things`;
+  const fullTitle = title ? `${title} | ${siteName}` : `Savannah Seedlings | Seeding Africa for Sustainable fruit farming`;
   const metaDescription = description || defaultDescription;
   const metaKeywords = keywords || defaultKeywords;
   const metaImage = image || defaultImage;

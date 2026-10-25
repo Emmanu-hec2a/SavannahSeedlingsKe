@@ -4,7 +4,7 @@ import AdminLayout from '../components/layout/AdminLayout';
 import ImageUploadZone from '../components/ui/ImageUploadZone';
 import VariantRow from '../components/ui/VariantRow';
 import ToggleSwitch from '../components/ui/ToggleSwitch';
-import { ChevronLeft, Plus, Save } from 'lucide-react';
+import { ChevronLeft, Plus, Save, Sprout } from 'lucide-react';
 import { productsService } from '../services/products';
 import { categoriesService } from '../services/categories';
 import { toast } from 'react-hot-toast';
@@ -14,6 +14,7 @@ const EMPTY_FORM = {
   slug: '',
   category_id: '',
   description: '',
+  planting_procedure: '',
   material: '',
   price: '',
   original_price: '',
@@ -21,10 +22,10 @@ const EMPTY_FORM = {
 };
 
 const EMPTY_VARIANT = {
-  color_name: '',
-  color_hex: '#0D3B36',
-  size: 'Regular',
-  stock: 0,
+  color_name: 'Grafted',
+  color_hex: '#2E7D32',
+  size: 'Standard',
+  stock: 50,
 };
 
 const ProductForm = () => {
@@ -32,8 +33,6 @@ const ProductForm = () => {
   const navigate   = useNavigate();
   const isEdit     = !!slug;
 
-  // Stable key counter for variant rows — avoids index-as-key bug
-  // when removing items from the middle of the list
   const variantKeyRef = useRef(0);
   const nextKey = () => {
     variantKeyRef.current += 1;
@@ -45,16 +44,12 @@ const ProductForm = () => {
   const [isSaving, setSaving]       = useState(false);
   const [formData, setFormData]     = useState(EMPTY_FORM);
 
-  // Each variant: { _key: number, ...variantFields }
   const [variants, setVariants] = useState([]);
-  // Each image: { id: number|null, preview: string, file: File|null }
   const [images, setImages]     = useState([]);
 
-  // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const init = async () => {
       try {
-        // Load categories — unwrap paginated or plain array
         const catData = await categoriesService.list();
         const catList = Array.isArray(catData)
           ? catData
@@ -64,14 +59,15 @@ const ProductForm = () => {
         if (isEdit) {
           const data = await productsService.get(slug);
           setFormData({
-            name:           data.name,
-            slug:           data.slug,
-            category_id:    data.category?.id ?? data.category ?? '',
-            description:    data.description,
-            material:       data.material ?? '',
-            price:          data.price,
-            original_price: data.original_price ?? '',
-            is_active:      data.is_active,
+            name:               data.name,
+            slug:               data.slug,
+            category_id:        data.category?.id ?? data.category ?? '',
+            description:        data.description,
+            planting_procedure: data.planting_procedure ?? '',
+            material:           data.material ?? '',
+            price:              data.price,
+            original_price:     data.original_price ?? '',
+            is_active:          data.is_active,
           });
           setImages(
             (data.images ?? []).map(img => ({
@@ -80,13 +76,12 @@ const ProductForm = () => {
               file:    null,
             }))
           );
-          // Attach a stable _key to each existing variant
           setVariants(
             (data.variants ?? []).map(v => ({ ...v, _key: nextKey() }))
           );
         }
       } catch (err) {
-        toast.error('Failed to load data');
+        toast.error('Failed to load seedling data');
         navigate('/products');
       } finally {
         setLoading(false);
@@ -95,7 +90,6 @@ const ProductForm = () => {
     init();
   }, [slug, isEdit, navigate]);
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
   const handleNameChange = (name) => {
     const generatedSlug = name
       .toLowerCase()
@@ -136,7 +130,6 @@ const ProductForm = () => {
     });
   };
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -144,36 +137,33 @@ const ProductForm = () => {
     try {
       const data = new FormData();
 
-      data.append('name',        formData.name);
-      data.append('slug',        formData.slug);
-      data.append('category_id', formData.category_id);
-      data.append('description', formData.description);
-      data.append('material',    formData.material);
-      data.append('price',       formData.price);
+      data.append('name',               formData.name);
+      data.append('slug',               formData.slug);
+      data.append('category_id',        formData.category_id);
+      data.append('description',        formData.description);
+      data.append('planting_procedure', formData.planting_procedure);
+      data.append('material',           formData.material);
+      data.append('price',              formData.price);
 
-      // Send 1/0 — more reliable than "true"/"false" strings with DRF BooleanField
       data.append('is_active', formData.is_active ? 1 : 0);
 
-      // Only send original_price when it has a value — empty string breaks DecimalField
       if (formData.original_price !== '' && formData.original_price !== null) {
         data.append('original_price', formData.original_price);
       }
 
-      // Strip internal _key before sending to API
       const variantsForApi = variants.map(({ _key, ...rest }) => rest);
       data.append('variants_json', JSON.stringify(variantsForApi));
 
-      // Only upload newly staged files
       images
         .filter(img => img.file !== null)
         .forEach(img => data.append('images', img.file));
 
       if (isEdit) {
         await productsService.update(slug, data);
-        toast.success('Product updated successfully');
+        toast.success('Seedling updated successfully');
       } else {
         await productsService.create(data);
-        toast.success('Product created successfully');
+        toast.success('Seedling created successfully');
       }
 
       navigate('/products');
@@ -183,14 +173,13 @@ const ProductForm = () => {
         const firstKey = Object.keys(detail)[0];
         toast.error(`${firstKey}: ${detail[firstKey]}`);
       } else {
-        toast.error('Failed to save product');
+        toast.error('Failed to save seedling');
       }
     } finally {
       setSaving(false);
     }
   };
 
-  // ── Loading ─────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <AdminLayout title="Loading...">
@@ -199,15 +188,14 @@ const ProductForm = () => {
     );
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <AdminLayout title={isEdit ? 'Edit Product' : 'Add New Product'}>
+    <AdminLayout title={isEdit ? 'Edit Seedling' : 'Add New Seedling'}>
       <Link
         to="/products"
-        className="inline-flex items-center gap-2 text-sm font-medium text-neutral-500 hover:text-cyan-600 mb-6 transition-colors group"
+        className="inline-flex items-center gap-2 text-sm font-medium text-neutral-500 hover:text-emerald-600 mb-6 transition-colors group"
       >
         <ChevronLeft size={16} className="transition-transform group-hover:-translate-x-1" />
-        Back to Products
+        Back to Seedlings Catalog
       </Link>
 
       <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
@@ -217,24 +205,24 @@ const ProductForm = () => {
 
           {/* Basic information */}
           <div className="card space-y-6">
-            <h3 className="text-lg font-bold text-neutral-900 border-b border-neutral-100 pb-4">
-              Basic Information
+            <h3 className="text-lg font-bold text-neutral-900 border-b border-neutral-100 pb-4 flex items-center gap-2">
+              <Sprout className="text-emerald-600" size={20} /> Seedling Information
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="label">Product Name</label>
+                <label className="label">Seedling Variety Name</label>
                 <input
                   type="text"
                   required
                   value={formData.name}
                   onChange={(e) => handleNameChange(e.target.value)}
                   className="input"
-                  placeholder="e.g. Amara Leather Tote"
+                  placeholder="e.g. Grafted Hass Avocado Seedling"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="label">Slug</label>
+                <label className="label">URL Slug</label>
                 <input
                   type="text"
                   required
@@ -247,27 +235,27 @@ const ProductForm = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="label">Category</label>
+                <label className="label">Fruit Category</label>
                 <select
                   required
                   value={formData.category_id}
                   onChange={(e) => handleField('category_id', e.target.value)}
                   className="input bg-white"
                 >
-                  <option key="placeholder" value="">Select a category</option>
+                  <option key="placeholder" value="">Select fruit category</option>
                   {categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="label">Material</label>
+                <label className="label">Propagation Type / Rootstock</label>
                 <input
                   type="text"
                   value={formData.material}
                   onChange={(e) => handleField('material', e.target.value)}
                   className="input"
-                  placeholder="e.g. Full-grain leather"
+                  placeholder="e.g. Certified Grafted / Rootstock"
                 />
               </div>
             </div>
@@ -276,11 +264,27 @@ const ProductForm = () => {
               <label className="label">Description</label>
               <textarea
                 required
-                rows={6}
+                rows={4}
                 value={formData.description}
                 onChange={(e) => handleField('description', e.target.value)}
                 className="input resize-none"
-                placeholder="Describe the product's features, dimensions, and craft details..."
+                placeholder="Describe fruiting period, yield, ecological altitude, drought tolerance..."
+              />
+            </div>
+
+            <div className="space-y-1.5 bg-emerald-50/50 p-4 rounded-lg border border-emerald-100">
+              <label className="label font-bold text-emerald-900 flex items-center gap-1.5">
+                <Sprout size={16} className="text-emerald-600" /> Planting & Care Procedure
+              </label>
+              <p className="text-xs text-emerald-700 mb-2">
+                Step-by-step instructions displayed on storefront product page for farmers.
+              </p>
+              <textarea
+                rows={5}
+                value={formData.planting_procedure}
+                onChange={(e) => handleField('planting_procedure', e.target.value)}
+                className="input bg-white resize-y font-sans text-sm"
+                placeholder={"1. Dig a 2ft x 2ft x 2ft hole.\n2. Mix topsoil with 15-20kg of well-rotted manure.\n3. Remove plastic sleeve without disturbing roots.\n4. Water thoroughly immediately after planting."}
               />
             </div>
           </div>
@@ -289,17 +293,17 @@ const ProductForm = () => {
           <div className="card space-y-6">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
               <div>
-                <h3 className="text-lg font-bold text-neutral-900">Variants</h3>
+                <h3 className="text-lg font-bold text-neutral-900">Stock & Batches</h3>
                 <p className="text-xs text-neutral-400 mt-0.5">
-                  Each variant defines a colour + size + stock combination.
+                  Define seedling nursery stock levels.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleAddVariant}
-                className="btn btn-outline btn-sm gap-2 text-cyan-600 border-cyan-100 hover:bg-cyan-50"
+                className="btn btn-outline btn-sm gap-2 text-emerald-600 border-emerald-100 hover:bg-emerald-50"
               >
-                <Plus size={16} /> Add Variant
+                <Plus size={16} /> Add Batch
               </button>
             </div>
 
@@ -307,7 +311,7 @@ const ProductForm = () => {
               {variants.length === 0 ? (
                 <div className="py-8 text-center bg-neutral-50 rounded-lg border border-dashed border-neutral-200">
                   <p className="text-sm text-neutral-400">
-                    No variants yet. Add at least one colour/size combination.
+                    No variants added. Click above to add stock batch details.
                   </p>
                 </div>
               ) : (
@@ -330,11 +334,11 @@ const ProductForm = () => {
           {/* Pricing & status */}
           <div className="card space-y-4">
             <h3 className="text-lg font-bold text-neutral-900 border-b border-neutral-100 pb-4">
-              Pricing & Status
+              Pricing & Storefront Status
             </h3>
 
             <div className="space-y-1.5">
-              <label className="label">Sale Price (KSh)</label>
+              <label className="label">Price per Seedling (KSh)</label>
               <input
                 type="number"
                 required
@@ -343,7 +347,7 @@ const ProductForm = () => {
                 value={formData.price}
                 onChange={(e) => handleField('price', e.target.value)}
                 className="input font-mono"
-                placeholder="0.00"
+                placeholder="250.00"
               />
             </div>
 
@@ -351,7 +355,7 @@ const ProductForm = () => {
               <label className="label">
                 Original Price{' '}
                 <span className="text-neutral-400 font-normal">
-                  (optional — shows strikethrough)
+                  (optional — strike-through)
                 </span>
               </label>
               <input
@@ -361,14 +365,14 @@ const ProductForm = () => {
                 value={formData.original_price}
                 onChange={(e) => handleField('original_price', e.target.value)}
                 className="input font-mono"
-                placeholder="0.00"
+                placeholder="300.00"
               />
             </div>
 
             <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-lg border border-neutral-100">
               <div>
-                <p className="text-sm font-bold text-neutral-800">Available in Store</p>
-                <p className="text-xs text-neutral-500">Toggle visibility on the shop</p>
+                <p className="text-sm font-bold text-neutral-800">Available in Nursery Store</p>
+                <p className="text-xs text-neutral-500">Toggle visibility on storefront</p>
               </div>
               <ToggleSwitch
                 checked={formData.is_active}
@@ -380,7 +384,7 @@ const ProductForm = () => {
           {/* Images */}
           <div className="card space-y-4">
             <h3 className="text-lg font-bold text-neutral-900 border-b border-neutral-100 pb-4">
-              Product Images
+              Seedling Photos
             </h3>
             <ImageUploadZone
               previews={images.map(img => img.preview)}
@@ -389,7 +393,7 @@ const ProductForm = () => {
             />
             {images.length > 0 && (
               <p className="text-xs text-neutral-400">
-                {images.filter(i => i.file).length} new file(s) will be uploaded on save.
+                {images.filter(i => i.file).length} new photo(s) will be uploaded on save.
               </p>
             )}
           </div>
@@ -399,10 +403,10 @@ const ProductForm = () => {
             <button
               type="submit"
               disabled={isSaving}
-              className="btn btn-primary w-full py-4 text-md shadow-xl shadow-cyan-500/20 gap-3 disabled:opacity-60"
+              className="btn btn-primary w-full py-4 text-md shadow-xl shadow-emerald-600/20 gap-3 disabled:opacity-60 bg-emerald-700 hover:bg-emerald-800 border-none"
             >
               <Save size={20} />
-              {isSaving ? 'Saving…' : isEdit ? 'Update Product' : 'Create Product'}
+              {isSaving ? 'Saving…' : isEdit ? 'Update Seedling' : 'Create Seedling'}
             </button>
             <Link
               to="/products"

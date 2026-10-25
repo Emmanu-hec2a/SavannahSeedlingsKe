@@ -5,7 +5,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext.jsx';
 import Icon from '../components/icons/Icon.jsx';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+import { API_BASE_URL as API_URL } from '../services/apiBase.js';
 
 export default function Signup() {
   const [email, setEmail] = useState('');
@@ -30,7 +30,7 @@ export default function Signup() {
         password2: confirmPassword,
       });
 
-      navigate('/account'); // or '/login' if that's your flow
+      navigate('/account');
     } catch (err) {
       setError(
         err.response?.data
@@ -39,6 +39,7 @@ export default function Signup() {
       );
     }
   };
+
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       try {
@@ -58,9 +59,9 @@ export default function Signup() {
         </nav>
         <div className="page-head">
           <div>
-            <p className="eyebrow">Join TinahStore</p>
-            <h2 className="h2">Create your account</h2>
-            <span className="muted" style={{ fontSize: 13.5 }}>Join our community of leather craft lovers.</span>
+            <p className="eyebrow">Join Savannah Seedlings</p>
+            <h2 className="h2">Create your farmer account</h2>
+            <span className="muted" style={{ fontSize: 13.5 }}>Join our community of fruit growers and commercial farmers across Kenya.</span>
           </div>
         </div>
       </div>
@@ -72,7 +73,7 @@ export default function Signup() {
             {error && <p className="error-text" style={{ color: 'var(--oxblood)', fontSize: 14, marginBottom: 15 }}>{error}</p>}
             <div className="form-field">
               <label>Email address</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" required />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="farmer@email.com" required />
             </div>
             <div className="form-field">
               <label>Password</label>
@@ -103,9 +104,9 @@ export default function Signup() {
           <div className="account-card account-benefits">
             <h3>Why create an account?</h3>
             {[
-              ['truck', 'Faster shipping', 'We store your preferred delivery address.'],
-              ['creditCard', 'Order history', 'Access your digital receipts anytime.'],
-              ['star', 'Exclusive drops', 'Get notified about limited leather batches.'],
+              ['truck', 'Seamless delivery', 'Save your farm and county address for quick re-orders.'],
+              ['leaf', 'Planting records', 'Access your digital seedling receipts and planting guides anytime.'],
+              ['star', 'Agronomy alerts', 'Get notified about seasonal grafting drops and bulk seedling offers.'],
             ].map(([icon, title, copy]) => (
               <div className="account-benefit" key={title}>
                 <span className="contact-icon"><Icon name={icon} /></span>

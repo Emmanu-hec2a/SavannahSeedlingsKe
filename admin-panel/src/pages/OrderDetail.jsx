@@ -21,6 +21,24 @@ const OrderDetail = () => {
   const [isActionLoading, setActionLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [deliveryQuote, setDeliveryQuote] = useState('');
+
+  useEffect(() => {
+    setDeliveryQuote(order?.delivery_fee ?? '');
+  }, [order?.delivery_fee]);
+
+  const saveDeliveryQuote = async (event) => {
+    event.preventDefault();
+    setActionLoading(true);
+    try {
+      const updated = await ordersService.quoteDelivery(orderNumber, deliveryQuote);
+      setOrder(updated);
+      toast.success('Delivery fee saved. Confirm the final total with the buyer on WhatsApp.');
+    } catch (err) {
+      const detail = err.response?.data;
+      toast.error(detail?.delivery_fee?.[0] || detail?.detail || 'Could not save the delivery quote.');
+    } finally { setActionLoading(false); }
+  };
 
   const fetchOrder = async () => {
     setLoading(true);
@@ -96,7 +114,8 @@ const OrderDetail = () => {
   }
 
   const steps = [
-    { label: 'Pending Deposit', status: 'pending_deposit' },
+    ...(order.payment_method === 'whatsapp' ? [{ label: 'Delivery quote', status: 'pending_confirmation' }] : []),
+    { label: 'Awaiting Payment', status: 'pending_deposit' },
     { label: 'Confirmed', status: 'confirmed' },
     { label: 'Shipped', status: 'shipped' },
     { label: 'Delivered', status: 'delivered' },
@@ -199,11 +218,11 @@ const OrderDetail = () => {
                 </div>
                 <div className="flex justify-between text-sm text-neutral-500">
                     <span>Delivery Fee</span>
-                    <span className="font-mono">KSh {Number(order.delivery_fee).toLocaleString()}</span>
+                    <span className="font-mono">{order.delivery_fee == null ? 'Not quoted — agree on WhatsApp' : `KSh ${Number(order.delivery_fee).toLocaleString()}`}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold text-neutral-900 pt-3 border-top border-neutral-200">
                     <span>Total Amount</span>
-                    <span className="font-mono text-cyan-600">KSh {Number(order.total_amount).toLocaleString()}</span>
+                    <span className="font-mono text-cyan-600">{order.total_amount == null ? 'Awaiting delivery quote' : `KSh ${Number(order.total_amount).toLocaleString()}`}</span>
                 </div>
             </div>
           </div>
@@ -211,6 +230,15 @@ const OrderDetail = () => {
 
         {/* Sidebar Column */}
         <div className="space-y-8">
+            {!order.deposit_paid && ['pending_confirmation', 'pending_deposit'].includes(order.status) && (
+              <form className="card space-y-4" onSubmit={saveDeliveryQuote}>
+                <h3 className="font-bold text-neutral-800">Agreed delivery fee</h3>
+                <p className="text-sm text-neutral-500">Agree delivery with the buyer on WhatsApp, then record the fee here. Enter 0 only if free delivery was explicitly agreed.</p>
+                <label className="block text-sm font-medium" htmlFor="delivery-quote">Delivery fee (KES)</label>
+                <input id="delivery-quote" className="w-full border border-neutral-200 rounded-lg px-3 py-2" type="number" min="0" max="99999999.99" step="0.01" value={deliveryQuote} onChange={event => setDeliveryQuote(event.target.value)} placeholder="Not yet quoted" required disabled={isActionLoading} />
+                <button className="btn btn-primary w-full" type="submit" disabled={isActionLoading}>{isActionLoading ? 'Saving…' : 'Save delivery quote'}</button>
+              </form>
+            )}
             {/* Payment Summary */}
             <div className="card space-y-6">
                 <h3 className="text-md font-bold text-neutral-800 flex items-center gap-2">
@@ -220,17 +248,17 @@ const OrderDetail = () => {
                 <div className="space-y-4">
                     <div className="p-4 rounded-lg bg-green-50 border border-green-100">
                         <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-green-700 uppercase">Deposit (60%)</span>
+                            <span className="text-xs font-bold text-green-700 uppercase">Full order payment</span>
                             {order.deposit_paid ? (
                                 <span className="bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">PAID</span>
                             ) : (
                                 <span className="bg-orange-400 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">PENDING</span>
                             )}
                         </div>
-                        <p className="text-xl font-mono font-bold text-green-700">KSh {Number(order.deposit_amount).toLocaleString()}</p>
+                        <p className="text-xl font-mono font-bold text-green-700">{order.deposit_amount == null ? 'Final total not yet agreed' : `KSh ${Number(order.deposit_amount).toLocaleString()}`}</p>
                     </div>
 
-                    <div className="p-4 rounded-lg bg-orange-50 border border-orange-100">
+                    {Number(order.balance_amount) > 0 && <div className="p-4 rounded-lg bg-orange-50 border border-orange-100">
                         <div className="flex items-center justify-between mb-1">
                             <span className="text-xs font-bold text-orange-700 uppercase">Balance on Delivery</span>
                             {order.balance_collected ? (
@@ -248,12 +276,12 @@ const OrderDetail = () => {
                                 Mark as Collected
                             </button>
                         )}
-                    </div>
+                    </div>}
                 </div>
 
                 <div className="text-xs space-y-1">
                     <p className="flex justify-between text-neutral-400">
-                        Method: <span className="text-neutral-700 font-medium">{order.payment_method.toUpperCase()}</span>
+                        Method: <span className="text-neutral-700 font-medium">{order.payment_method === 'whatsapp' ? 'Arrange on WhatsApp' : order.payment_method.toUpperCase()}</span>
                     </p>
                 </div>
             </div>
@@ -297,17 +325,17 @@ const OrderDetail = () => {
                     Available Actions
                 </h3>
                 <div className="space-y-2">
-                    {order.status === 'pending_deposit' && (
+                    {order.status === 'pending_deposit' && order.delivery_fee != null && (
                         <button
                             onClick={() => { setConfirmAction('manual_pay'); setConfirmOpen(true); }}
                             disabled={isActionLoading}
                             className="btn btn-primary bg-green-600 w-full py-3 gap-2"
                         >
                             <CheckCircle size={18} />
-                            Confirm Manual Payment
+                            Confirm Verified Payment
                         </button>
                     )}
-                    {order.status === 'pending_deposit' && !order.deposit_paid && (
+                    {order.payment_method === 'mpesa' && order.status === 'pending_deposit' && !order.deposit_paid && (
                         <button
                             onClick={() => handleAction('stk')}
                             disabled={isActionLoading}
@@ -355,9 +383,9 @@ const OrderDetail = () => {
         message={
             confirmAction === 'cancel' ? "This will permanently cancel the order. This action cannot be undone." :
             confirmAction === 'ship' ? "Confirm that items are packaged and handed to the courier." :
-            confirmAction === 'manual_pay' ? "Confirm that you have manually verified the deposit payment for this order." :
-            confirmAction === 'balance_pay' ? "Confirm that the 40% cash balance has been collected by the rider or received." :
-            "Confirm that the rider has delivered the bag and collected the 40% cash balance."
+            confirmAction === 'manual_pay' ? "Confirm that you have received and independently verified the full agreed order payment, including delivery." :
+            confirmAction === 'balance_pay' ? "Confirm that the outstanding balance has been received." :
+            "Confirm that the seedlings have been delivered to the buyer."
         }
         onConfirm={() => handleAction(confirmAction)}
         onCancel={() => setConfirmOpen(false)}

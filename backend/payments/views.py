@@ -1,7 +1,8 @@
 import json
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
+from django.utils.crypto import constant_time_compare
 from rest_framework.response import Response
 from rest_framework import status, generics
 from django.shortcuts import get_object_or_404
@@ -14,7 +15,7 @@ from core.services.telegram import telegram_service
 class MpesaTransactionListView(generics.ListAPIView):
     queryset = MpesaTransaction.objects.all().order_by('-created_at')
     serializer_class = MpesaTransactionSerializer
-    permission_classes = [AllowAny] # In production use IsAdminUser
+    permission_classes = [IsAdminUser]
 
 @csrf_exempt
 @api_view(['POST'])
@@ -65,6 +66,7 @@ def mpesa_callback(request):
     return Response({"ResultCode": 0, "ResultDesc": "Accepted"})
 
 @api_view(['POST'])
+@permission_classes([IsAdminUser])
 def mpesa_initiate(request):
     """
     Re-initiates STK Push for an existing pending order.
@@ -78,7 +80,10 @@ def mpesa_initiate(request):
             status=status.HTTP_400_BAD_REQUEST
         )
         
-    stk_response = mpesa_service.initiate_stk_push(order)
+    try:
+        stk_response = mpesa_service.initiate_stk_push(order)
+    except ValueError as error:
+        return Response({'error': str(error)}, status=status.HTTP_400_BAD_REQUEST)
     
     if stk_response.get('ResponseCode') == '0':
         checkout_request_id = stk_response.get('CheckoutRequestID')
@@ -97,6 +102,7 @@ def mpesa_initiate(request):
         return Response(stk_response, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
+@permission_classes([IsAdminUser])
 def mpesa_query(request):
     """
     Queries M-PESA for the status of a transaction.
@@ -104,7 +110,6 @@ def mpesa_query(request):
     checkout_request_id = request.data.get('checkout_request_id')
     transaction = get_object_or_404(MpesaTransaction, checkout_request_id=checkout_request_id)
     order = transaction.order
-    
     query_response = mpesa_service.query_stk_push(checkout_request_id)
     
     # If successful query and payment was successful
@@ -130,6 +135,10 @@ def mpesa_status(request, checkout_request_id):
     """
     transaction = get_object_or_404(MpesaTransaction, checkout_request_id=checkout_request_id)
     order = transaction.order
+    if not (request.user.is_staff or
+            (request.user.is_authenticated and order.user_id == request.user.pk) or
+            constant_time_compare(str(order.access_token), request.headers.get('X-Order-Token', ''))):
+        return Response({'detail': 'Order not found.'}, status=status.HTTP_404_NOT_FOUND)
     
     return Response({
         "deposit_paid": order.deposit_paid,

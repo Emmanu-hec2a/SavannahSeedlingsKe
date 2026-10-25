@@ -1,177 +1,93 @@
-import { Link, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 import Footer from '../components/layout/Footer.jsx';
 import Icon from '../components/icons/Icon.jsx';
-import ProductArt from '../components/product/ProductArt.jsx';
+import SavannahLogo from '../components/common/SavannahLogo.jsx';
 import { formatKes } from '../data/products.js';
 import { api } from '../services/api.js';
-
-const supportEmail = 'petniqueke@gmail.com';
-const supportPhone = '254726911763';
+import { readCheckoutOrder, saveCheckoutOrder, whatsappOrderUrl } from '../services/orderCheckout.js';
 
 export default function OrderConfirmation() {
   const location = useLocation();
-  const [order, setOrder] = useState(location.state?.order);
-  const [paymentStatus, setPaymentStatus] = useState('pending_verification');
+  const [params] = useSearchParams();
+  const orderNumber = params.get('order') || location.state?.order?.order_number;
+  const navigatedOrder = location.state?.order;
+  const initialOrder = navigatedOrder && navigatedOrder.order_number === orderNumber ? navigatedOrder : readCheckoutOrder(orderNumber);
+  const [order, setOrder] = useState(initialOrder);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const accessToken = order?.access_token || initialOrder?.access_token;
 
-  // Polling removed for manual flow
-  useEffect(() => {
-    // We only set to 'paid' if the order object already says so (e.g. from backend)
-    if (order?.deposit_paid) {
-      setPaymentStatus('paid');
-    }
-  }, [order]);
-
-  async function handleRetryPayment() {
-    if (!order) return;
-    setRetryStatus('loading');
+  const refresh = useCallback(async () => {
+    if (!orderNumber) return;
+    setRefreshing(true);
+    setError('');
     try {
-      const response = await api.retriggerMpesaStkPush(order.order_number);
-      setCheckoutRequestId(response.checkout_request_id);
-      setRetryStatus('success');
-      setTimeout(() => setRetryStatus(null), 3000);
-    } catch (err) {
-      setRetryStatus('error');
-      alert(err.message || 'Failed to re-trigger payment. Please contact support.');
-    }
+      const updated = await api.getOrder(orderNumber, accessToken);
+      setOrder(updated);
+      saveCheckoutOrder(updated);
+    } catch {
+      setError('We could not refresh this order. Your saved details are shown below if available; contact the nursery with your order number for the latest update.');
+    } finally { setRefreshing(false); }
+  }, [orderNumber, accessToken]);
+
+  useEffect(() => {
+    refresh();
+    const onFocus = () => refresh();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refresh]);
+
+  if (!order || order.order_number !== orderNumber) {
+    return <main className="container checkout-page"><h1 className="h2">{refreshing ? 'Loading your order…' : 'Order details unavailable'}</h1><p>{error || 'Open your order from your account or the confirmation tab where you placed it.'}</p><Link to="/account" className="btn btn-primary">My account</Link><Link to="/shop" className="btn btn-ghost">Shop seedlings</Link></main>;
   }
 
-  if (!order) {
-    return (
-      <div className="container" style={{ padding: '100px 0', textAlign: 'center' }}>
-        <h2>Order not found</h2>
-        <Link to="/shop" className="btn btn-primary">Go to shop</Link>
+  const paid = order.deposit_paid;
+  const cancelled = order.status === 'cancelled';
+  const quoted = order.delivery_fee != null;
+  const subtotal = order.subtotal ?? order.items.reduce((sum, item) => sum + Number(item.unit_price) * item.quantity, 0);
+  const heading = cancelled ? 'This order has been cancelled' : paid ? 'Payment verified. Thank you!' : quoted ? 'Delivery quoted. Arrange payment on WhatsApp.' : 'Order saved. Let’s arrange delivery.';
+  const description = cancelled ? 'Contact the nursery if you need help placing a new order.' : paid ? 'The nursery has verified your payment. Contact the team for preparation and delivery updates.' : quoted ? 'The nursery has recorded your delivery fee. Confirm the final arrangements and payment details with the seller on WhatsApp.' : 'Your seedlings and delivery details have been saved. Send the prepared WhatsApp message so the nursery can quote delivery and agree payment with you. No payment has been recorded.';
+
+  return <>
+    <header className="checkout-header"><div className="container"><Link to="/" className="logo"><SavannahLogo /></Link><span className="secure-pill"><Icon name={paid ? 'checkCircle' : 'whatsapp'} className="icon icon-sm" />{paid ? 'Payment verified' : 'Order saved'}</span></div></header>
+    <main className="container">
+      <div className="confirm-layout">
+        <section className="confirm-hero" aria-labelledby="confirmation-title">
+          <div className="confirm-icon"><Icon name={cancelled ? 'x' : paid ? 'checkCircle' : 'whatsapp'} /></div>
+          <p className="eyebrow" style={{ justifyContent: 'center' }}>Order #{order.order_number}</p>
+          <h1 className="h2" id="confirmation-title">{heading}</h1>
+          <p className="lede" style={{ margin: '16px auto 0', maxWidth: 600 }}>{description}</p>
+          {error && <p role="status" className="checkout-fine-print">{error}</p>}
+          <div className="confirm-actions">
+            {!cancelled && <a href={whatsappOrderUrl(order)} className="btn btn-primary" target="_blank" rel="noreferrer"><Icon name="whatsapp" />{paid ? 'Contact nursery on WhatsApp' : 'Continue on WhatsApp'}</a>}
+            <button className="btn btn-outline" type="button" disabled={refreshing} onClick={refresh}><Icon name="refresh" />{refreshing ? 'Refreshing…' : 'Refresh order status'}</button>
+          </div>
+          {!paid && !cancelled && <p className="checkout-fine-print">If WhatsApp did not open, use the button above. Review the message and tap Send in WhatsApp. You won’t create another order.</p>}
+        </section>
+
+        <section className="confirm-card" aria-label="Order and delivery details">
+          <h2 className="h3">Your delivery details</h2>
+          <div className="confirm-row"><span>Customer</span><span>{order.customer_name}</span></div>
+          <div className="confirm-row"><span>Phone</span><span>{order.customer_phone}</span></div>
+          <div className="confirm-row"><span>Email</span><span>{order.customer_email}</span></div>
+          <div className="confirm-row"><span>Delivery location</span><span>{order.delivery_address}, {order.city}, {order.county}</span></div>
+          <div className="confirm-row"><span>Order status</span><span>{order.status === 'pending_confirmation' ? 'Awaiting WhatsApp arrangements' : order.status === 'pending_deposit' ? 'Awaiting payment' : order.status.replaceAll('_', ' ')}</span></div>
+          <div className="confirm-row"><span>Checkout method</span><span>{order.payment_method === 'whatsapp' ? 'Arrange on WhatsApp' : order.payment_method === 'manual' ? 'M-PESA Send Money' : order.payment_method.toUpperCase()}</span></div>
+          <div className="confirm-row"><span>Payment</span><span>{paid ? 'Verified by the nursery' : 'Not yet verified'}</span></div>
+        </section>
+
+        <section className="confirm-card confirm-items" aria-label="Seedlings and pricing">
+          <h2 className="h3">Your seedlings</h2>
+          {order.items.map((item, index) => <div className="mini-row" key={index}><div><div className="name">{item.product_name || item.product_slug}</div><div className="qty-tag">Quantity: {item.quantity}</div></div><span className="price">{formatKes(Number(item.unit_price) * item.quantity)}</span></div>)}
+          <div className="summary-row"><span>Seedling subtotal</span><span>{formatKes(subtotal)}</span></div>
+          <div className="summary-row"><span>Delivery fee</span><span>{quoted ? formatKes(order.delivery_fee) : 'To be agreed on WhatsApp'}</span></div>
+          <div className="summary-row total"><span>{paid ? 'Verified order total' : 'Final total'}</span><span>{order.total_amount == null ? 'Awaiting delivery quote' : formatKes(order.total_amount)}</span></div>
+          {!quoted && <p className="checkout-fine-print">Delivery is not included in the seedling subtotal. The seller will confirm the final total before payment.</p>}
+        </section>
+        <div className="confirm-actions"><Link to="/shop" className="btn btn-ghost">Continue shopping</Link><button className="btn btn-outline" type="button" onClick={() => window.print()}><Icon name="printer" />Print order details</button></div>
       </div>
-    );
-  }
-
-  const encodedTrackingMessage = encodeURIComponent(`Hi TinahStore, I would like to track order ${order.order_number}.`);
-  const receiptSubject = encodeURIComponent(`TinahStore order ${order.order_number}`);
-  const receiptBody = encodeURIComponent(
-    `Hello TinahStore,\n\nPlease help me with order ${order.order_number}.\nTotal: ${formatKes(order.total_amount)}\n`
-  );
-
-  return (
-    <>
-      <header className="checkout-header">
-        <div className="container">
-          <Link to="/" className="logo">Tinah<span>Store</span></Link>
-          <div className="secure-pill">
-            <Icon name="lock" className="icon icon-sm" />
-            {paymentStatus === 'paid' ? 'Order confirmed' : 'Verification in progress'}
-          </div>
-        </div>
-      </header>
-
-      <main className="container">
-        <div className="steps">
-          <div className="step done"><span className="num"><Icon name="check" className="icon icon-sm" /></span> Bag</div>
-          <div className="step-line"></div>
-          <div className="step done"><span className="num"><Icon name="check" className="icon icon-sm" /></span> Checkout</div>
-          <div className="step-line"></div>
-          <div className="step active">
-            <span className="num">{paymentStatus === 'paid' ? <Icon name="check" className="icon icon-sm" /> : '3'}</span> Confirmation
-          </div>
-        </div>
-
-        <div className="confirm-layout">
-          <section className="confirm-hero" aria-labelledby="confirmation-title">
-            <div className={`confirm-icon ${paymentStatus === 'paid' ? 'success' : 'pending'}`}>
-              <Icon name={paymentStatus === 'paid' ? 'checkCircle' : 'clock'} />
-            </div>
-            <p className="eyebrow" style={{ justifyContent: 'center' }}>Order {order.order_number}</p>
-            <h1 className="h2" id="confirmation-title">
-              {paymentStatus === 'paid' ? `Thank you, ${order.customer_name}.` : 'Verification in progress'}
-            </h1>
-            <p className="lede" style={{ margin: '14px auto 0', maxWidth: 600 }}>
-              {paymentStatus === 'paid'
-                ? "Your order is confirmed and being prepared at our Nairobi workshop. We'll message you once it's out for delivery."
-                : `We've received your order and the Transaction Code (${order.transaction_code || location.state?.transactionCode || 'N/A'}). Our team is manually verifying the deposit. You'll receive a confirmation message shortly.`}
-            </p>
-
-            {paymentStatus === 'paid' ? (
-              <div className="confirm-actions">
-                <Link to="/shop" className="btn btn-primary"><Icon name="bag" className="icon icon-sm" /> Continue shopping</Link>
-                <button className="btn btn-outline" type="button" onClick={() => window.print()}><Icon name="printer" className="icon icon-sm" /> Print receipt</button>
-              </div>
-            ) : (
-              <div className="confirm-actions">
-                <a
-                  href={`https://wa.me/${supportPhone}?text=${encodeURIComponent(`Hi TinahStore, I've just placed order ${order.order_number} and paid the deposit. Transaction code: ${order.transaction_code || ''}`)}`}
-                  className="btn btn-primary"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Icon name="whatsapp" className="icon icon-sm" /> Confirm on WhatsApp
-                </a>
-              </div>
-            )}
-          </section>
-
-          <section className="confirm-card confirm-summary" aria-label="Order details">
-            <h3>Order details</h3>
-            <div className="confirm-row"><span>Order number</span><span className="mono">{order.order_number}</span></div>
-            <div className="confirm-row"><span>Payment method</span><span>M-PESA Deposit + Cash on Delivery</span></div>
-            <div className="confirm-row">
-              <span>Status</span>
-              <span className={`confirm-status ${paymentStatus}`}>
-                <Icon name={paymentStatus === 'paid' ? 'checkCircle' : 'clock'} className="icon icon-sm" />
-                {paymentStatus === 'paid' ? 'Deposit Verified' : 'Awaiting Verification'}
-              </span>
-            </div>
-            {order.transaction_code && (
-               <div className="confirm-row"><span>Transaction Code</span><span className="mono">{order.transaction_code}</span></div>
-            )}
-            <div className="confirm-row"><span>Delivery address</span><span>{order.delivery_address}, {order.city}</span></div>
-          </section>
-
-          <section className="confirm-card confirm-items" aria-label="Ordered items">
-            <div className="confirm-card-head">
-              <h3>Payment Breakdown</h3>
-            </div>
-            <div className="summary-row"><span>Total amount</span><span>{formatKes(order.total_amount)}</span></div>
-            <div className="summary-row" style={{ color: '#059669', fontWeight: 600 }}>
-              <span>60% Deposit (M-PESA)</span>
-              <span>{formatKes(order.deposit_amount)}</span>
-            </div>
-            <div className="summary-row" style={{ color: '#d97706', fontWeight: 600 }}>
-              <span>40% Balance (Cash on Delivery)</span>
-              <span>{formatKes(order.balance_amount)}</span>
-            </div>
-
-            <h3 style={{ marginTop: 24, fontSize: 16 }}>Items</h3>
-            {order.items?.map((item, idx) => (
-              <div className="mini-row" key={idx}>
-                <div className="thumb-box">
-                  {item.primary_image ? (
-                    <img src={item.primary_image} alt={item.product_slug} className="product-image" />
-                  ) : (
-                    <div style={{ backgroundColor: '#f3f4f6', width: '100%', height: '100%', borderRadius: 'var(--radius-md)' }}></div>
-                  )}
-                </div>
-                <div>
-                  <div className="name">{item.product_slug}</div>
-                  <div className="qty-tag">{`Quantity: ${item.quantity}`}</div>
-                </div>
-                <div className="price">{formatKes(item.unit_price)}</div>
-              </div>
-            ))}
-          </section>
-
-          <section className="confirm-help" aria-label="Order support">
-            <a className="contact-card" href={`https://wa.me/${supportPhone}?text=${encodedTrackingMessage}`} target="_blank" rel="noreferrer">
-              <span className="contact-icon" style={{ backgroundColor: '#25D366' }}><Icon name="whatsapp" /></span>
-              <span><strong>Track on WhatsApp</strong><span>Fastest help for delivery updates</span></span>
-            </a>
-            <a className="contact-card" href={`mailto:${supportEmail}?subject=${receiptSubject}&body=${receiptBody}`}>
-              <span className="contact-icon" style={{ backgroundColor: '#0D3B36' }}><Icon name="mail" /></span>
-              <span><strong>Email support</strong><span>{supportEmail}</span></span>
-            </a>
-          </section>
-        </div>
-      </main>
-
-      <Footer compact />
-    </>
-  );
+    </main>
+    <Footer compact />
+  </>;
 }

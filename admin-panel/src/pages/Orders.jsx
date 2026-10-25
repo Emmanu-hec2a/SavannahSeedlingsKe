@@ -14,6 +14,7 @@ import { toast } from 'react-hot-toast';
 
 const STATUS_OPTIONS = [
   { label: 'All Statuses',    value: 'all' },
+  { label: 'Awaiting WhatsApp', value: 'pending_confirmation' },
   { label: 'Pending Deposit', value: 'pending_deposit' },
   { label: 'Confirmed',       value: 'confirmed' },
   { label: 'Shipped',         value: 'shipped' },
@@ -119,16 +120,16 @@ const Orders = () => {
       header: 'Total',
       render: (row) => (
         <span className="font-mono text-sm">
-          KSh {Number(row.total_amount).toLocaleString()}
+          {row.total_amount == null ? 'Awaiting delivery quote' : `KSh ${Number(row.total_amount).toLocaleString()}`}
         </span>
       ),
     },
     {
-      header: 'Deposit',
+      header: 'Payment',
       render: (row) => (
         <div className="flex flex-col">
           <span className="font-mono text-xs">
-            KSh {Number(row.deposit_amount).toLocaleString()}
+            {row.deposit_amount == null ? 'Total not yet agreed' : `KSh ${Number(row.deposit_amount).toLocaleString()}`}
           </span>
           <span className={`text-[10px] font-semibold ${row.deposit_paid ? 'text-green-600' : 'text-orange-500'}`}>
             {row.deposit_paid ? 'Paid' : 'Pending'}

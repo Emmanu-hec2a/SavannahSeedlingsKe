@@ -37,7 +37,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'slug', 'category', 'category_id', 'price', 'original_price', 'primary_image', 'is_active', 'stock', 'description', 'material', 'rating', 'reviews']
+        fields = ['id', 'name', 'slug', 'category', 'category_id', 'price', 'original_price', 'primary_image', 'is_active', 'stock', 'description', 'planting_procedure', 'material', 'rating', 'reviews']
 
     def get_primary_image(self, obj):
         image = obj.images.filter(is_primary=True).first()
@@ -80,7 +80,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'slug', 'category', 'category_id', 'description', 'price',
+            'id', 'name', 'slug', 'category', 'category_id', 'description', 'planting_procedure', 'price',
             'original_price', 'material', 'is_active', 'stock', 
             'created_at', 'updated_at', 'images', 'variants', 'rating', 'reviews'
         ]

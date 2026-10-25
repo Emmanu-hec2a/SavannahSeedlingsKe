@@ -1,14 +1,35 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import AdminLayout from '../components/layout/AdminLayout';
-import { Store, ShieldCheck, User, Save, Bell } from 'lucide-react';
+import { Store, ShieldCheck, User, Save, Truck, Sprout } from 'lucide-react';
 import { authService } from '../services/auth';
 import { AdminContext } from '../context/AdminContext';
+import api from '../services/api';
 import { toast } from 'react-hot-toast';
 
 const Settings = () => {
   const { user } = useContext(AdminContext);
   const [passData, setPassData] = useState({ old: '', new: '', confirm: '' });
   const [isChanging, setChanging] = useState(false);
+
+  const [deliveryData, setDeliveryData] = useState({ nairobi_delivery_fee: '0.00', upcountry_delivery_fee: '250.00' });
+  const [isUpdatingDelivery, setUpdatingDelivery] = useState(false);
+
+  useEffect(() => {
+    async function fetchDeliverySettings() {
+      try {
+        const res = await api.get('/orders/delivery-settings/');
+        if (res.data) {
+          setDeliveryData({
+            nairobi_delivery_fee: res.data.nairobi_delivery_fee,
+            upcountry_delivery_fee: res.data.upcountry_delivery_fee,
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to load delivery settings', err);
+      }
+    }
+    fetchDeliverySettings();
+  }, []);
 
   const handlePassChange = async (e) => {
     e.preventDefault();
@@ -28,66 +49,131 @@ const Settings = () => {
     }
   };
 
+  const handleDeliverySave = async (e) => {
+    e.preventDefault();
+    setUpdatingDelivery(true);
+    try {
+      await api.patch('/orders/delivery-settings/', {
+        nairobi_delivery_fee: parseFloat(deliveryData.nairobi_delivery_fee),
+        upcountry_delivery_fee: parseFloat(deliveryData.upcountry_delivery_fee),
+      });
+      toast.success('Delivery rates updated successfully!');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to update delivery settings');
+    } finally {
+      setUpdatingDelivery(false);
+    }
+  };
+
   return (
-    <AdminLayout title="Settings">
+    <AdminLayout title="Settings & Business Logic">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-8">
+            {/* Delivery & Rates Settings */}
+            <div className="card space-y-6">
+                <div className="flex items-center gap-3 border-b border-neutral-100 pb-4">
+                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                        <Truck size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-neutral-900">Delivery Rates Management</h3>
+                      <p className="text-xs text-neutral-400">Legacy M-PESA rates only. WhatsApp orders use the delivery quote saved on each order.</p>
+                    </div>
+                </div>
+
+                <form onSubmit={handleDeliverySave} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="label">Nairobi Region Delivery Fee (KSh)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      className="input font-mono"
+                      value={deliveryData.nairobi_delivery_fee}
+                      onChange={(e) => setDeliveryData({ ...deliveryData, nairobi_delivery_fee: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <p className="text-xs text-emerald-600">Set to 0.00 for FREE Nairobi Delivery</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="label">Upcountry / Rest of Kenya Delivery Fee (KSh)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      className="input font-mono"
+                      value={deliveryData.upcountry_delivery_fee}
+                      onChange={(e) => setDeliveryData({ ...deliveryData, upcountry_delivery_fee: e.target.value })}
+                      placeholder="250.00"
+                    />
+                  </div>
+
+                  <button type="submit" disabled={isUpdatingDelivery} className="btn bg-emerald-700 text-white hover:bg-emerald-800 w-full gap-2 mt-4">
+                    <Save size={18} />
+                    {isUpdatingDelivery ? 'Updating Delivery Settings...' : 'Save Delivery Settings'}
+                  </button>
+                </form>
+            </div>
+
             {/* Store Config */}
             <div className="card space-y-6">
                 <div className="flex items-center gap-3 border-b border-neutral-100 pb-4">
-                    <div className="p-2 bg-cyan-50 text-cyan-600 rounded-lg">
+                    <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
                         <Store size={20} />
                     </div>
-                    <h3 className="text-lg font-bold text-neutral-900">Store Configuration</h3>
+                    <h3 className="text-lg font-bold text-neutral-900">Business Logic & Payment System</h3>
                 </div>
                 <div className="space-y-4">
                     <div className="flex justify-between items-center py-2 border-b border-neutral-50">
-                        <span className="text-sm text-neutral-500">Deposit Percentage</span>
-                        <span className="font-bold text-neutral-900">60%</span>
+                        <span className="text-sm text-neutral-500">Checkout Payment Model</span>
+                        <span className="font-bold text-emerald-700">100% Full Payment</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-neutral-50">
-                        <span className="text-sm text-neutral-500">Flat Delivery Fee</span>
-                        <span className="font-bold text-neutral-900">KSh 250</span>
+                        <span className="text-sm text-neutral-500">M-PESA Receiving Phone</span>
+                        <span className="font-bold text-neutral-900">0710583989 (SAVANNAH SEEDLINGS)</span>
                     </div>
                     <div className="flex justify-between items-center py-2">
-                        <span className="text-sm text-neutral-500">Free Delivery Threshold</span>
-                        <span className="font-bold text-neutral-900">KSh 5,000</span>
-                    </div>
-                </div>
-                <div className="p-3 bg-neutral-50 rounded-md flex gap-3">
-                    <Bell size={16} className="text-neutral-400 mt-0.5" />
-                    <p className="text-xs text-neutral-500 leading-relaxed">
-                        These settings are configured at the system level. Contact your developer to change business logic parameters.
-                    </p>
-                </div>
-            </div>
-
-            {/* Admin Info */}
-            <div className="card space-y-6">
-                <div className="flex items-center gap-3 border-b border-neutral-100 pb-4">
-                    <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
-                        <User size={20} />
-                    </div>
-                    <h3 className="text-lg font-bold text-neutral-900">Account Information</h3>
-                </div>
-                <div className="space-y-4">
-                    <div>
-                        <label className="label">Username</label>
-                        <p className="text-md font-semibold text-neutral-900">{user?.username || 'admin'}</p>
-                    </div>
-                    <div>
-                        <label className="label">Email Address</label>
-                        <p className="text-sm text-neutral-600">admin@tinahstore.co.ke</p>
+                        <span className="text-sm text-neutral-500">WhatsApp Inquiries</span>
+                        <span className="font-bold text-neutral-900">+254 710 583 989</span>
                     </div>
                 </div>
             </div>
         </div>
 
         <div className="space-y-8">
+            {/* Nursery Info */}
+            <div className="card space-y-6">
+                <div className="flex items-center gap-3 border-b border-neutral-100 pb-4">
+                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                        <Sprout size={20} />
+                    </div>
+                    <h3 className="text-lg font-bold text-neutral-900">Nursery Locations & Info</h3>
+                </div>
+                <div className="space-y-4 text-sm">
+                    <div>
+                        <label className="label">Brand Tagline</label>
+                        <p className="font-semibold text-emerald-800">"Seeding Africa for Sustainable fruit farming"</p>
+                    </div>
+                    <div className="border-t border-neutral-100 pt-3">
+                        <label className="label">Nairobi Nursery Location</label>
+                        <p className="text-neutral-700 font-medium">Kasarani Kastemil Junction, Nairobi</p>
+                    </div>
+                    <div className="border-t border-neutral-100 pt-3">
+                        <label className="label">Murang'a Nursery Location</label>
+                        <p className="text-neutral-700 font-medium">Kwa Samaki Murang'a along Nairobi-Nyeri Highway</p>
+                    </div>
+                    <div className="border-t border-neutral-100 pt-3">
+                        <label className="label">Support Email</label>
+                        <p className="text-neutral-700 font-medium">savannahseedlings@gmail.com</p>
+                    </div>
+                </div>
+            </div>
+
             {/* Security */}
             <div className="card space-y-6">
                 <div className="flex items-center gap-3 border-b border-neutral-100 pb-4">
-                    <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                    <div className="p-2 bg-neutral-100 text-neutral-700 rounded-lg">
                         <ShieldCheck size={20} />
                     </div>
                     <h3 className="text-lg font-bold text-neutral-900">Security & Password</h3>
@@ -114,7 +200,7 @@ const Settings = () => {
                             value={passData.confirm} onChange={(e) => setPassData({ ...passData, confirm: e.target.value })}
                         />
                     </div>
-                    <button type="submit" disabled={isChanging} className="btn btn-primary w-full gap-2 mt-4">
+                    <button type="submit" disabled={isChanging} className="btn btn-outline w-full gap-2 mt-4">
                         <Save size={18} />
                         {isChanging ? 'Updating Password...' : 'Update Password'}
                     </button>

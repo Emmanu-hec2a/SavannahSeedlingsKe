@@ -7,21 +7,12 @@ import { formatKes } from '../data/products.js';
 import { useProducts } from '../hooks/useProducts.js';
 
 const PAGE_SIZE = 8;
-const PRICE_MIN = 300;
-const PRICE_MAX = 2000;
-const colorOptions = [
-  { name: 'Midnight Black', hex: '#000000' },
-  { name: 'Caramel Tan', hex: '#C68E17' },
-  { name: 'Teal Green', hex: '#0D3B36' },
-  { name: 'Cognac Tan', hex: '#A9744A' },
-  { name: 'Cream', hex: '#E7DCC4' },
-];
+const PRICE_MIN = 100;
+const PRICE_MAX = 5000;
 
 const initialFilters = {
   categories: [],
-  materials: [],
-  colors: [],
-  maxPrice: 2000,
+  maxPrice: 5000,
   query: '',
 };
 
@@ -44,13 +35,11 @@ export default function Shop() {
         const catName = typeof product.category === 'object' ? product.category?.name : product.category;
         return filters.categories.length === 0 || filters.categories.includes(catName);
       })
-      .filter((product) => filters.materials.length === 0 || filters.materials.includes(product.material))
-      .filter((product) => filters.colors.length === 0 || filters.colors.includes(product.color))
       .filter((product) => product.price <= filters.maxPrice)
       .filter((product) => {
         if (!query) return true;
         const catName = typeof product.category === 'object' ? product.category?.name : product.category;
-        return [product.name, catName, product.material].join(' ').toLowerCase().includes(query);
+        return [product.name, catName, product.description, product.planting_procedure].join(' ').toLowerCase().includes(query);
       })
       .sort(sortProducts(sort));
   }, [filters, products, sort]);
@@ -59,7 +48,7 @@ export default function Shop() {
   const currentPage = Math.min(page, totalPages);
   const start = (currentPage - 1) * PAGE_SIZE;
   const visibleProducts = filteredProducts.slice(start, start + PAGE_SIZE);
-  const activeFilterCount = filters.categories.length + filters.materials.length + filters.colors.length + (filters.maxPrice < PRICE_MAX ? 1 : 0) + (filters.query ? 1 : 0);
+  const activeFilterCount = filters.categories.length + (filters.maxPrice < PRICE_MAX ? 1 : 0) + (filters.query ? 1 : 0);
 
   function updateFilters(next) {
     setFilters((current) => ({ ...current, ...next }));
@@ -83,19 +72,19 @@ export default function Shop() {
   return (
     <>
       <SEO
-        title="Shop All Bags"
-        description="Browse our collection of hand-finished leather and canvas bags. From structured totes to city-ready crossbody bags, find your perfect everyday carry."
+        title="Shop All Fruit Seedlings - Savannah Seedlings"
+        description="Browse certified high-yielding fruit seedlings including Grafted Hass Avocado, Pixie Orange, Kent Mango, Yellow Passion, Dragon Fruit & Pomegranate."
         url="/shop"
       />
       <div className="container">
         <nav className="breadcrumb">
-          <Link to="/">Home</Link><span className="sep">/</span><span className="current">Shop</span>
+          <Link to="/">Home</Link><span className="sep">/</span><span className="current">Shop Seedlings</span>
         </nav>
         <div className="page-head shop-head">
           <div>
-            <p className="eyebrow">Collection</p>
-            <h2 className="h2">Shop all bags</h2>
-            <span className="muted" style={{ fontSize: 13.5 }}>{products.length} products</span>
+            <p className="eyebrow">Fruit Seedling Catalog</p>
+            <h2 className="h2">Shop all fruit seedlings</h2>
+            <span className="muted" style={{ fontSize: 13.5 }}>{products.length} seedling varieties</span>
           </div>
           <button className="mobile-filter-btn" type="button" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}>
             <Icon name="sliders" className="icon icon-sm" /> Filters {activeFilterCount > 0 && <span className="filter-count">{activeFilterCount}</span>}
@@ -112,7 +101,7 @@ export default function Shop() {
                 type="search"
                 value={filters.query}
                 onChange={(event) => updateFilters({ query: event.target.value })}
-                placeholder="Search bags"
+                placeholder="Search avocado, mango, orange..."
               />
             </div>
 
@@ -124,9 +113,9 @@ export default function Shop() {
             />
 
             <div className="filter-group">
-              <h4>Price range <span>{formatKes(filters.maxPrice)}</span></h4>
+              <h4>Max Price per seedling <span>{formatKes(filters.maxPrice)}</span></h4>
               <div className="price-range">
-                <span className="mono" style={{ fontSize: 12 }}>300</span>
+                <span className="mono" style={{ fontSize: 12 }}>100</span>
                 <input
                   type="range"
                   min={PRICE_MIN}
@@ -136,32 +125,9 @@ export default function Shop() {
                   onChange={(event) => updateFilters({ maxPrice: Number(event.target.value) })}
                   aria-label="Maximum price"
                 />
-                <span className="mono" style={{ fontSize: 12 }}>2k</span>
+                <span className="mono" style={{ fontSize: 12 }}>5k</span>
               </div>
             </div>
-
-            <div className="filter-group">
-              <h4>Colour</h4>
-              <div className="filter-colors">
-                {colorOptions.map((color) => (
-                  <button
-                    className={`swatch ${filters.colors.includes(color.name) ? 'active' : ''}`}
-                    style={{ background: color.hex }}
-                    key={color.name}
-                    type="button"
-                    aria-label={color.name}
-                    onClick={() => toggleFilter('colors', color.name)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <FilterGroup
-              title="Material"
-              options={facets.materials}
-              selected={filters.materials}
-              onToggle={(value) => toggleFilter('materials', value)}
-            />
 
             <div style={{ paddingTop: 18 }}>
               <button className="clear-filters" type="button" onClick={clearFilters} disabled={activeFilterCount === 0}>Clear all filters</button>
@@ -173,8 +139,6 @@ export default function Shop() {
               <div className="active-filters" aria-label="Active filters">
                 {filters.query && <FilterChip label={`Search: ${filters.query}`} onRemove={() => updateFilters({ query: '' })} />}
                 {filters.categories.map((value) => <FilterChip label={value} key={value} onRemove={() => toggleFilter('categories', value)} />)}
-                {filters.materials.map((value) => <FilterChip label={value} key={value} onRemove={() => toggleFilter('materials', value)} />)}
-                {filters.colors.map((value) => <FilterChip label={value} key={value} onRemove={() => toggleFilter('colors', value)} />)}
                 {filters.maxPrice < PRICE_MAX && <FilterChip label={`Under ${formatKes(filters.maxPrice)}`} onRemove={() => updateFilters({ maxPrice: PRICE_MAX })} />}
               </div>
             )}
@@ -186,7 +150,6 @@ export default function Shop() {
                   <option value="newest">Sort: Newest</option>
                   <option value="low">Price: low to high</option>
                   <option value="high">Price: high to low</option>
-                  <option value="popular">Most popular</option>
                   <option value="rating">Highest rated</option>
                 </select>
                 <div className="view-toggle" aria-label="View mode">
@@ -196,13 +159,13 @@ export default function Shop() {
               </div>
             </div>
 
-            {isLoading && <div className="shop-empty"><h3>Loading bags...</h3></div>}
-            {error && <div className="shop-empty"><h3>We could not load the shop.</h3><p className="muted">Please try refreshing the page.</p></div>}
+            {isLoading && <div className="shop-empty"><h3>Loading seedlings...</h3></div>}
+            {error && <div className="shop-empty"><h3>We could not load the seedling catalog.</h3><p className="muted">Please try refreshing the page.</p></div>}
             {!isLoading && !error && visibleProducts.length === 0 && (
               <div className="shop-empty">
                 <Icon name="search" className="icon icon-lg" />
-                <h3>No bags match those filters</h3>
-                <p className="muted">Try widening the price range or clearing one of the selected filters.</p>
+                <h3>No seedlings match those filters</h3>
+                <p className="muted">Try adjusting the max price or clearing search keywords.</p>
                 <button className="btn btn-outline btn-sm" type="button" onClick={clearFilters}>Clear filters</button>
               </div>
             )}
@@ -266,7 +229,6 @@ function FilterChip({ label, onRemove }) {
 function buildFacets(products) {
   return {
     categories: countBy(products, 'category'),
-    materials: countBy(products, 'material'),
   };
 }
 
@@ -284,11 +246,11 @@ function sortProducts(sort) {
   return (a, b) => {
     if (sort === 'low') return a.price - b.price;
     if (sort === 'high') return b.price - a.price;
-    return new Date(b.created_at) - new Date(a.created_at);
+    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
   };
 }
 
 function resultText(total, start, visibleCount) {
   if (total === 0) return 'No results';
-  return `Showing ${start + 1}-${start + visibleCount} of ${total} results`;
+  return `Showing ${start + 1}-${start + visibleCount} of ${total} seedling varieties`;
 }

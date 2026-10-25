@@ -25,6 +25,8 @@ class MpesaService:
         we cache the access token in Django's cache backend.
         The token is cached for (expires_in - 30) seconds as per requirements.
         """
+        if not all((self.consumer_key, self.consumer_secret, self.shortcode, self.passkey, settings.MPESA_CALLBACK_URL)):
+            raise ValueError('M-PESA is not configured yet. Arrange payment with the nursery on WhatsApp.')
         # Check cache first
         access_token = cache.get('mpesa_access_token')
         if access_token:
@@ -56,6 +58,8 @@ class MpesaService:
         return base64.b64encode(password_str.encode()).decode()
 
     def initiate_stk_push(self, order):
+        if order.delivery_fee is None or order.deposit_amount is None:
+            raise ValueError('Save the agreed delivery fee before requesting payment.')
         access_token = self.get_access_token()
         url = f"{self.base_url}/mpesa/stkpush/v1/processrequest"
         
@@ -82,7 +86,7 @@ class MpesaService:
             "PhoneNumber": phone,
             "CallBackURL": settings.MPESA_CALLBACK_URL,
             "AccountReference": order.order_number,
-            "TransactionDesc": f"TinahStore deposit for order {order.order_number}"
+            "TransactionDesc": f"Savannah Seedlings payment for order {order.order_number}"
         }
         
         headers = {

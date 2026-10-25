@@ -3,25 +3,21 @@ import { Link, useLocation } from 'react-router-dom';
 import Icon from '../components/icons/Icon.jsx';
 import SEO from '../components/common/SEO.jsx';
 import ProductCard from '../components/product/ProductCard.jsx';
-import ToteIllustration from '../assets/illustrations/ToteIllustration.jsx';
-import CrossbodyIllustration from '../assets/illustrations/CrossbodyIllustration.jsx';
-import BackpackIllustration from '../assets/illustrations/BackpackIllustration.jsx';
-import ClutchIllustration from '../assets/illustrations/ClutchIllustration.jsx';
+import SeedlingIllustration from '../assets/illustrations/SeedlingIllustration.jsx';
 import { useProducts } from '../hooks/useProducts.js';
 
 const categories = [
-  ['Totes', 'Structured everyday carry', ToteIllustration],
-  ['Crossbody', 'Hands-free, city-ready', CrossbodyIllustration],
-  ['Backpacks', 'For longer days, light loads', BackpackIllustration],
-  ['Clutches', 'Evenings, weddings, travel', ClutchIllustration],
+  ['Avocado Seedlings', 'Grafted Hass, Fuerte & Jumbo', SeedlingIllustration],
+  ['Citrus & Oranges', 'Grafted Pixie & Washington Navel', SeedlingIllustration],
+  ['Mango Seedlings', 'Grafted Kent, Tommy Atkins & Apple', SeedlingIllustration],
+  ['Passion & Exotic', 'Grafted Yellow Passion, Dragon Fruit & Pomegranate', SeedlingIllustration],
 ];
 
 const contactLinks = [
-  { label: 'Gmail', value: 'petniqueke@gmail.com', href: 'mailto:petniqueke@gmail.com', icon: 'mail' },
-  { label: 'Phone', value: '+254 726 911 763', href: 'tel:+254726911763', icon: 'phone' },
-  { label: 'WhatsApp', value: 'Chat with us', href: 'https://wa.me/254726911763', icon: 'whatsapp' },
-  { label: 'TikTok', value: '@hotfits28', href: 'https://www.tiktok.com/@hotfits28', icon: 'tiktok' },
-//   { label: 'X', value: '@tinahstore', href: 'https://x.com/tinahstore', icon: 'xSocial' },
+  { label: 'WhatsApp', value: '+254 710 583 989', href: 'https://wa.me/254710583989', icon: 'whatsapp' },
+  { label: 'Phone', value: '+254 710 583 989', href: 'tel:+254710583989', icon: 'phone' },
+  { label: 'Email', value: 'savannahseedlings@gmail.com', href: 'mailto:savannahseedlings@gmail.com', icon: 'mail' },
+  { label: 'Nairobi Nursery', value: 'Kasarani Kastemil Junction', href: '#about', icon: 'mapPin' },
 ];
 
 export default function Home() {
@@ -40,11 +36,11 @@ export default function Home() {
   const homeSchema = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "TinahStore",
-    "url": "https://tinahstore.store",
+    "name": "Savannah Seedlings",
+    "url": "https://savannahseedlings.co.ke",
     "potentialAction": {
       "@type": "SearchAction",
-      "target": "https://tinahstore.store/shop?search={search_term_string}",
+      "target": "https://savannahseedlings.co.ke/shop?search={search_term_string}",
       "query-input": "required name=search_term_string"
     }
   };
@@ -52,43 +48,39 @@ export default function Home() {
   const orgSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "TinahStore",
-    "url": "https://tinahstore.store",
-    "logo": "https://tinahstore.store/favicon.png",
+    "name": "Savannah Seedlings",
+    "url": "https://savannahseedlings.co.ke",
+    "logo": "https://savannahseedlings.co.ke/favicon.png",
     "contactPoint": {
       "@type": "ContactPoint",
-      "telephone": "+254-726-911-763",
+      "telephone": "+254-710-583-989",
       "contactType": "customer service",
       "areaServed": "KE",
       "availableLanguage": "en"
-    },
-    "sameAs": [
-      "https://www.tiktok.com/@hotfits28"
-    ]
+    }
   };
 
   return (
     <>
-      <SEO
-        schemaData={[homeSchema, orgSchema]}
-      />
+      <SEO schemaData={[homeSchema, orgSchema]} />
+
       <section className="hero">
         <div className="container">
           <div className="hero-copy">
-            <p className="eyebrow">New arrivals - AW26</p>
-            <h1 className="h1">Bags that carry more than your things.</h1>
-            <p className="lede">Hand-finished leather and canvas pieces, designed in Nairobi for everyday movement - from the office to the airport to everywhere between.</p>
+            <p className="eyebrow">🌱 Seeding Africa for Sustainable fruit farming</p>
+            <h1 className="h1">High-yielding fruit seedlings for every farm.</h1>
+            <p className="lede">Certified grafted Hass Avocado, Pixie Orange, Kent Mango, Yellow Passion, Dragon Fruit & Pomegranate seedlings propagated for rapid growth, disease resistance, and premium harvests.</p>
             <div className="hero-actions">
-              <Link to="/shop" className="btn btn-primary">Shop the collection</Link>
-              <a href="#about" className="btn btn-outline">Our craft</a>
+              <Link to="/shop" className="btn btn-primary">Shop Seedlings</Link>
+              <a href="#about" className="btn btn-outline">Our Nurseries</a>
             </div>
           </div>
           <div className="hero-art">
             <div className="ring"></div>
-            <ToteIllustration color="#0D3B36" detailed />
+            <SeedlingIllustration color="#2E7D32" detailed />
             <div className="hero-tag">
-              <div className="tline">Hangtag</div>
-              <div>Tinah's Store - Teal</div>
+              <div className="tline">Savannah Seedlings</div>
+              <div>Certified Grafted Varieties</div>
             </div>
           </div>
         </div>
@@ -97,10 +89,10 @@ export default function Home() {
       <div className="trust-strip">
         <div className="container trust-grid">
           {[
-            ['truck', 'Nairobi delivery', '8AM - 6PM'],
-            ['shield', 'Pay safely', 'M-PESA'],
-            ['leaf', 'Full-grain leather', 'Ethically sourced'],
-            ['refresh', 'Easy exchanges', '0-day window'],
+            ['truck', 'Delivery Across Kenya', 'Quoted on WhatsApp'],
+            ['mapPin', 'Murang\'a Nursery', 'Nairobi-Nyeri Highway'],
+            ['leaf', 'Certified Grafted', 'High Yield & Fast Fruiting'],
+            ['shield', 'Order on WhatsApp', '+254 710 583 989'],
           ].map(([icon, title, copy]) => (
             <div className="trust-item" key={title}><Icon name={icon} className="icon icon-lg" /><div><strong>{title}</strong><span>{copy}</span></div></div>
           ))}
@@ -109,11 +101,11 @@ export default function Home() {
 
       <section>
         <div className="container">
-          <div className="section-head"><div><p className="eyebrow">Browse</p><h2 className="h2">Shop by category</h2></div></div>
+          <div className="section-head"><div><p className="eyebrow">Browse Catalog</p><h2 className="h2">Fruit Seedling Categories</h2></div></div>
           <div className="cat-grid">
             {categories.map(([name, copy, Art]) => (
-              <Link to={`/shop?category=${name.toLowerCase()}`} className="cat-card" key={name}>
-                <div className="art"><Art color="#0D3B36" /></div>
+              <Link to={`/shop?search=${encodeURIComponent(name.split(' ')[0])}`} className="cat-card" key={name}>
+                <div className="art"><Art color="#2E7D32" /></div>
                 <h3>{name}</h3>
                 <span className="muted" style={{ fontSize: 13 }}>{copy}</span>
               </Link>
@@ -125,8 +117,8 @@ export default function Home() {
       <section style={{ background: 'var(--surface)', borderTop: '1px solid var(--hairline)', borderBottom: '1px solid var(--hairline)' }}>
         <div className="container">
           <div className="section-head">
-            <div><p className="eyebrow">Most carried</p><h2 className="h2">Best sellers</h2></div>
-            <Link to="/shop" className="view-all">View all <Icon name="arrowRight" className="icon icon-sm" /></Link>
+            <div><p className="eyebrow">Top Rated Seedlings</p><h2 className="h2">Featured Fruit Seedlings</h2></div>
+            <Link to="/shop" className="view-all">View all seedlings <Icon name="arrowRight" className="icon icon-sm" /></Link>
           </div>
           <div className="product-grid">
             {isLoading ? (
@@ -142,25 +134,25 @@ export default function Home() {
         <div className="container">
           <div className="story about-story">
             <div>
-              <p className="eyebrow">About TinahStore</p>
-              <h2 className="h2" style={{ marginBottom: 20 }}>Made in small batches, not a factory line.</h2>
-              <p className="lede" style={{ marginBottom: 20 }}>Every TinahStore piece starts at a workbench in Nairobi. We work with a small team of leather artisans to cut, stitch, and finish each bag by hand - so the things you carry every day are built to actually last.</p>
+              <p className="eyebrow">About Savannah Seedlings</p>
+              <h2 className="h2" style={{ marginBottom: 20 }}>Propagating Sustainable Agriculture across Kenya.</h2>
+              <p className="lede" style={{ marginBottom: 20 }}>Savannah Seedlings is dedicated to seeding Africa for sustainable fruit farming. Our certified horticulturists cultivate healthy, pest-free, high-yield grafted fruit seedlings to empower smallholders, commercial orchards, and household growers across Kenya.</p>
               <div className="about-points">
-                <div><strong>Designed in Nairobi</strong><span>Clean silhouettes for office days, travel days, and everything between.</span></div>
-                <div><strong>Built to be repaired</strong><span>Hardware, straps, and seams are chosen so your bag can stay in rotation.</span></div>
-                <div><strong>Checkout made local</strong><span>M-PESA first, card friendly, with delivery support across Kenya.</span></div>
+                <div><strong>Nairobi Nursery</strong><span>Located at Kasarani Kastemil Junction, Nairobi for convenient city pickups and delivery arrangements.</span></div>
+                <div><strong>Murang'a Nursery</strong><span>Situated at Kwa Samaki Murang'a along the Nairobi-Nyeri Highway for upcountry farmers.</span></div>
+                <div><strong>Complete Planting Guides</strong><span>Every seedling comes with step-by-step planting, spacing, and care procedures for maximum yield.</span></div>
               </div>
               <div className="hero-actions">
-                <Link to="/shop" className="btn btn-primary">Shop bags</Link>
-                <a href="#contact" className="btn btn-outline">Contact us</a>
+                <Link to="/shop" className="btn btn-primary">Browse Seedlings</Link>
+                <a href="#contact" className="btn btn-outline">Contact Nursery</a>
               </div>
             </div>
             <div className="art about-panel">
-              <ToteIllustration color="#0D3B36" detailed />
+              <SeedlingIllustration color="#2E7D32" detailed />
               <div className="about-stats">
-                <div><strong>8AM - 6PM</strong><span>Nairobi delivery</span></div>
-                <div><strong>0 days</strong><span>Exchange window</span></div>
-                <div><strong>Small batch</strong><span>Limited drops</span></div>
+                <div><strong>Kenya-wide</strong><span>Delivery arranged on WhatsApp</span></div>
+                <div><strong>2 Locations</strong><span>Kasarani & Murang'a</span></div>
+                <div><strong>Certified</strong><span>Grafted varieties</span></div>
               </div>
             </div>
           </div>
@@ -169,9 +161,9 @@ export default function Home() {
 
       <section style={{ background: 'var(--surface)', borderTop: '1px solid var(--hairline)', borderBottom: '1px solid var(--hairline)' }}>
         <div className="container">
-          <div className="section-head"><div><p className="eyebrow">From the community</p><h2 className="h2">What customers say</h2></div></div>
+          <div className="section-head"><div><p className="eyebrow">Farmer Testimonials</p><h2 className="h2">What Growers Say</h2></div></div>
           <div className="testi-grid">
-            {['Three years in and the strap has not budged. This tote has been to more meetings than I have.', 'Paid with M-PESA, had it in two days. The leather smell alone is worth it.', 'My go-to gift for every friend starting a new job.'].map((quote, index) => (
+            {['Grafted Hass Avocado seedlings took root wonderfully on my Murang\'a farm. Already flowering early!', 'Ordered 50 Grafted Pixie Orange seedlings via WhatsApp. Delivered right to my farm in Machakos.', 'Excellent root stock quality and step-by-step planting guidance provided by the team.'].map((quote, index) => (
               <div className="testi-card" key={quote}>
                 <div className="rating">
                   <div className="stars">
@@ -179,7 +171,7 @@ export default function Home() {
                   </div>
                 </div>
                 <p>"{quote}"</p>
-                <footer>{['Wanjiru K. - Nairobi', 'Brian O. - Mombasa', 'Achieng M. - Kisumu'][index]}</footer>
+                <footer>{['John M. - Murang\'a', 'Grace N. - Machakos', 'David K. - Nakuru'][index]}</footer>
               </div>
             ))}
           </div>
@@ -190,9 +182,9 @@ export default function Home() {
         <div className="container">
           <div className="contact-layout">
             <div>
-              <p className="eyebrow">Contact</p>
-              <h2 className="h2">Need help choosing, gifting, or ordering?</h2>
-              <p className="lede">Message TinahStore for product questions, delivery updates, custom requests, or help completing checkout.</p>
+              <p className="eyebrow">Contact & Inquiries</p>
+              <h2 className="h2">Need advice on fruit farming or bulk seedling orders?</h2>
+              <p className="lede">Get in touch with Savannah Seedlings for agronomy support, nursery location directions, bulk discounts, or WhatsApp ordering.</p>
             </div>
             <div className="contact-grid">
               {contactLinks.map((item) => (
@@ -219,13 +211,13 @@ function Newsletter() {
   return (
     <section className="newsletter">
       <div className="container">
-        <p className="eyebrow">Stay close</p>
-        <h2 className="h2">Get first access to new drops</h2>
+        <p className="eyebrow">Farmer Community</p>
+        <h2 className="h2">Get Seasonal Planting & Grafting Tips</h2>
         <form className="newsletter-form" onSubmit={(event) => { event.preventDefault(); setSubmitted(true); }}>
           {!submitted && <div className="newsletter-row"><input type="email" placeholder="you@email.com" required /><button className="btn btn-primary" type="submit">Subscribe</button></div>}
         </form>
-        <div className={`newsletter-success ${submitted ? 'show' : ''}`}><Icon name="checkCircle" /> You're on the list - welcome.</div>
-        <p className="newsletter-fine">No spam, just new bags and the occasional discount code.</p>
+        <div className={`newsletter-success ${submitted ? 'show' : ''}`}><Icon name="checkCircle" /> Welcome to the Savannah Seedlings grower network!</div>
+        <p className="newsletter-fine">No spam, only fruit farming insights and new seedling availability alerts.</p>
       </div>
     </section>
   );

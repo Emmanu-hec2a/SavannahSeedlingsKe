@@ -1,11 +1,11 @@
-import ToteIllustration from './ToteIllustration.jsx';
-import CrossbodyIllustration from './CrossbodyIllustration.jsx';
-import BackpackIllustration from './BackpackIllustration.jsx';
-import ClutchIllustration from './ClutchIllustration.jsx';
+import SeedlingIllustration from './SeedlingIllustration.jsx';
 
 export const illustrationMap = {
-  tote: ToteIllustration,
-  crossbody: CrossbodyIllustration,
-  backpack: BackpackIllustration,
-  clutch: ClutchIllustration,
+  seedling: SeedlingIllustration,
+  tote: SeedlingIllustration,
+  crossbody: SeedlingIllustration,
+  backpack: SeedlingIllustration,
+  clutch: SeedlingIllustration,
 };
+
+export default SeedlingIllustration;

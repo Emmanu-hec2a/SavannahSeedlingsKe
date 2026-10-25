@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import environ
+from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -117,6 +118,9 @@ CACHES = {
     }
 }
 
+# Allow guests to reopen only their own saved order across storefront/API origins.
+CORS_ALLOW_HEADERS = (*default_headers, 'x-order-token')
+
 # ── Password validation ───────────────────────────────────────────────────────
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -137,7 +141,7 @@ USE_TZ        = True
 
 STATIC_URL  = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Note: STATICFILES_STORAGE is configured via STORAGES["staticfiles"] below
 
 # ── Media files ───────────────────────────────────────────────────────────────
 # R2 configuration using django-storages (S3Boto3Storage)
@@ -185,6 +189,7 @@ else:
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'core.authentication.AdminSessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -192,6 +197,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 12,
+    'DEFAULT_THROTTLE_RATES': {'admin_login': '10/min'},
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         *(['rest_framework.renderers.BrowsableAPIRenderer'] if DEBUG else []),
@@ -200,11 +206,8 @@ REST_FRAMEWORK = {
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-else:
-    CORS_ALLOW_ALL_ORIGINS = False
-    CORS_ALLOWED_ORIGINS = env.list(
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = env.list(
         'CORS_ALLOWED_ORIGINS',
         default=[
             'https://tinahstore.co.ke',
@@ -215,8 +218,14 @@ else:
             'https://admin-tinahstore.pages.dev',
         ]
     )
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = list(dict.fromkeys([
+        *CORS_ALLOWED_ORIGINS,
+        *[f'http://{host}:{port}' for host in ('localhost', '127.0.0.1') for port in (5173, 5174, 4173, 4174)],
+    ]))
 
 CORS_ALLOW_CREDENTIALS = True
+ADMIN_SESSION_TTL_SECONDS = env.int('ADMIN_SESSION_TTL_SECONDS', default=28800)
 
 # ── Security headers (production only) ───────────────────────────────────────
 
@@ -232,17 +241,17 @@ if not DEBUG:
 
 # ── Business logic ────────────────────────────────────────────────────────────
 
-DEPOSIT_PERCENTAGE      = env('DEPOSIT_PERCENTAGE')
-DELIVERY_FEE            = env('DELIVERY_FEE')
-FREE_DELIVERY_THRESHOLD = env('FREE_DELIVERY_THRESHOLD')
+DEPOSIT_PERCENTAGE      = env.float('DEPOSIT_PERCENTAGE', default=1.0)
+DELIVERY_FEE            = env.float('DELIVERY_FEE', default=0.0)
+FREE_DELIVERY_THRESHOLD = env.float('FREE_DELIVERY_THRESHOLD', default=0.0)
 
 # ── M-PESA Daraja ─────────────────────────────────────────────────────────────
 
-MPESA_CONSUMER_KEY    = env('MPESA_CONSUMER_KEY')
-MPESA_CONSUMER_SECRET = env('MPESA_CONSUMER_SECRET')
-MPESA_SHORTCODE       = env('MPESA_SHORTCODE')
-MPESA_PASSKEY         = env('MPESA_PASSKEY')
-MPESA_CALLBACK_URL    = env('MPESA_CALLBACK_URL')
+MPESA_CONSUMER_KEY    = env('MPESA_CONSUMER_KEY', default='')
+MPESA_CONSUMER_SECRET = env('MPESA_CONSUMER_SECRET', default='')
+MPESA_SHORTCODE       = env('MPESA_SHORTCODE', default='')
+MPESA_PASSKEY         = env('MPESA_PASSKEY', default='')
+MPESA_CALLBACK_URL    = env('MPESA_CALLBACK_URL', default='')
 MPESA_ENV             = env('MPESA_ENV', default='sandbox')
 
 # ── Telegram alerts ───────────────────────────────────────────────────────────

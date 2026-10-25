@@ -1,5 +1,8 @@
 from rest_framework import generics, filters, permissions
 from rest_framework.response import Response
+from django.db import transaction
+from django.utils.crypto import constant_time_compare
+from rest_framework.exceptions import NotFound
 from .models import Order
 from .serializers import OrderSerializer
 
@@ -9,8 +12,11 @@ class OrderListCreateView(generics.ListCreateAPIView):
     filter_backends = [filters.SearchFilter]
     search_fields = ['order_number', 'customer_name', 'customer_phone']
 
+    def get_permissions(self):
+        return [permissions.AllowAny()] if self.request.method == 'POST' else [permissions.IsAuthenticated()]
+
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().prefetch_related('items__product__images', 'transactions')
         
         # If user is authenticated, they should only see their own orders
         # UNLESS they are an admin (who uses the same endpoint for the admin panel)
@@ -39,25 +45,52 @@ class OrderDetailView(generics.RetrieveUpdateAPIView):
             return [permissions.IsAdminUser()]
         return [permissions.AllowAny()]
 
-    def update(self, request, *args, **kwargs):
-        # Handle manual payment confirmation from admin
-        if request.data.get('deposit_paid') is True:
-            instance = self.get_object()
-            instance.confirm_deposit_payment()
-            return Response(self.get_serializer(instance).data)
-            
-        # Handle restocking on cancellation
-        if request.data.get('status') == 'cancelled':
-            instance = self.get_object()
-            if instance.status != 'cancelled':
-                instance.restock()
+    def get_object(self):
+        instance = super().get_object()
+        user = self.request.user
+        owner = user.is_authenticated and instance.user_id == user.pk
+        token = self.request.headers.get('X-Order-Token', '')
+        if not (user.is_staff or owner or constant_time_compare(str(instance.access_token), token)):
+            raise NotFound('Order not found.')
+        return instance
 
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        self.queryset = Order.objects.select_for_update().all()
         return super().update(request, *args, **kwargs)
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         # Mark as viewed when an admin opens the detail page
-        if not instance.is_viewed:
+        if request.user.is_staff and not instance.is_viewed:
             instance.is_viewed = True
             instance.save()
         return super().retrieve(request, *args, **kwargs)
+
+
+from rest_framework.views import APIView
+from .models import DeliverySetting
+
+class DeliverySettingView(APIView):
+    def get(self, request):
+        setting = DeliverySetting.get_settings()
+        return Response({
+            'nairobi_delivery_fee': float(setting.nairobi_delivery_fee),
+            'upcountry_delivery_fee': float(setting.upcountry_delivery_fee),
+            'updated_at': setting.updated_at
+        })
+    def put(self, request):
+        if not (request.user and request.user.is_staff):
+            return Response({'detail': 'Admin permission required'}, status=403)
+        setting = DeliverySetting.get_settings()
+        if 'nairobi_delivery_fee' in request.data:
+            setting.nairobi_delivery_fee = request.data['nairobi_delivery_fee']
+        if 'upcountry_delivery_fee' in request.data:
+            setting.upcountry_delivery_fee = request.data['upcountry_delivery_fee']
+        setting.save()
+        return Response({
+            'nairobi_delivery_fee': float(setting.nairobi_delivery_fee),
+            'upcountry_delivery_fee': float(setting.upcountry_delivery_fee),
+            'updated_at': setting.updated_at
+        })
+

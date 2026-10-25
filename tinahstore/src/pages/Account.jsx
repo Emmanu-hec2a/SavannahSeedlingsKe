@@ -12,7 +12,7 @@ export default function Account() {
   const [error, setError] = useState('');
   const [orders, setOrders] = useState([]);
   const [isLoadingOrders, setLoadingOrders] = useState(false);
-  const { login, googleLogin, user, logout, token } = useAuth();
+  const { login, googleLogin, user, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -43,7 +43,6 @@ export default function Account() {
   };
 
   const handleGoogleLogin = useGoogleLogin({
-//       flow: 'auth-code',
       onSuccess: async (tokenResponse) => {
           try {
             await googleLogin(tokenResponse.access_token);
@@ -71,17 +70,17 @@ export default function Account() {
 
         <div className="account-history-grid">
           <section className="order-history-section">
-            <h3 className="h3" style={{ marginBottom: 24 }}>Order History</h3>
+            <h3 className="h3" style={{ marginBottom: 24 }}>Seedling Order History</h3>
 
             {isLoadingOrders ? (
-              <p className="muted">Loading your past orders...</p>
+              <p className="muted">Loading your past seedling orders...</p>
             ) : orders.length > 0 ? (
               <div className="order-list">
                 {orders.map(order => (
                   <div key={order.order_number} className="order-history-card">
                     <div className="order-main-info">
                       <div>
-                        <p className="order-id font-mono">{order.order_number}</p>
+                        <p className="order-id font-mono">#{order.order_number}</p>
                         <p className="order-date text-xs muted">
                           {(() => {
                             if (!order.created_at) return '—';
@@ -92,7 +91,7 @@ export default function Account() {
                         </p>
                       </div>
                       <div className={`order-status-tag ${order.status}`}>
-                        {order.status.replace('_', ' ')}
+                        {order.status === 'pending_confirmation' ? 'Awaiting WhatsApp confirmation' : order.status.replaceAll('_', ' ')}
                       </div>
                     </div>
 
@@ -104,20 +103,20 @@ export default function Account() {
                     </div>
 
                     <div className="order-footer">
-                      <p className="order-total font-bold">{formatKes(order.total_amount)}</p>
-                      <Link to={`/confirmation`} state={{ order }} className="btn btn-outline btn-sm">View Details</Link>
+                      <p className="order-total font-bold">{order.total_amount == null ? `${formatKes(order.subtotal)} + delivery to be agreed` : formatKes(order.total_amount)}</p>
+                      <Link to={`/confirmation?order=${encodeURIComponent(order.order_number)}`} state={{ order }} className="btn btn-outline btn-sm">View Details</Link>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="empty-history">
-                <Icon name="bag" />
-                <h4>No orders yet</h4>
+                <Icon name="leaf" />
+                <h4>No seedling orders yet</h4>
                 <p className="muted" style={{ marginBottom: 24, fontSize: 14 }}>
-                  When you shop, your orders will appear here.
+                  When you place seedling orders, they will appear here.
                 </p>
-                <Link to="/shop" className="btn btn-primary btn-sm">Start shopping</Link>
+                <Link to="/shop" className="btn btn-primary btn-sm">Shop Seedlings</Link>
               </div>
             )}
           </section>
@@ -148,9 +147,9 @@ export default function Account() {
         </nav>
         <div className="page-head">
           <div>
-            <p className="eyebrow">Customer account</p>
-            <h2 className="h2">Sign in to TinahStore</h2>
-            <span className="muted" style={{ fontSize: 13.5 }}>Track orders, save addresses, and manage your wishlist.</span>
+            <p className="eyebrow">Grower account</p>
+            <h2 className="h2">Sign in to Savannah Seedlings</h2>
+            <span className="muted" style={{ fontSize: 13.5 }}>Track orders, save farm addresses, and manage your seedling wishlist.</span>
           </div>
         </div>
       </div>
@@ -162,7 +161,7 @@ export default function Account() {
             {error && <p className="error-text" style={{ color: 'var(--oxblood)', fontSize: 14, marginBottom: 15 }}>{error}</p>}
             <div className="form-field">
               <label>Email address</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" required />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="farmer@email.com" required />
             </div>
             <div className="form-field">
               <label>Password</label>
@@ -189,9 +188,9 @@ export default function Account() {
           <div className="account-card account-benefits">
             <h3>Account benefits</h3>
             {[
-              ['bag', 'Track your orders', 'See delivery status and past purchases.'],
-              ['heart', 'Save favourites', 'Keep your wishlist synced across visits.'],
-              ['mapPin', 'Faster checkout', 'Reuse delivery details for future orders.'],
+              ['leaf', 'Track seedling orders', 'See dispatch status and delivery details.'],
+              ['heart', 'Save favourites', 'Keep your seedling wishlist saved.'],
+              ['mapPin', 'Faster re-ordering', 'Reuse farm addresses for upcoming planting seasons.'],
             ].map(([icon, title, copy]) => (
               <div className="account-benefit" key={title}>
                 <span className="contact-icon"><Icon name={icon} /></span>

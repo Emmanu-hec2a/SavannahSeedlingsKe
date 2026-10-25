@@ -2,6 +2,7 @@ import React from 'react';
 
 const Badge = ({ status }) => {
   const mapping = {
+    pending_confirmation: 'bg-amber-100 text-amber-800',
     pending_deposit: 'bg-orange-100 text-orange-700',
     confirmed: 'bg-cyan-100 text-cyan-700',
     shipped: 'bg-teal-100 text-teal-700',
@@ -11,7 +12,7 @@ const Badge = ({ status }) => {
     balance_pending: 'bg-orange-100 text-orange-700',
   };
 
-  const label = status.replace('_', ' ');
+  const label = status === 'pending_confirmation' ? 'Awaiting WhatsApp' : status.replaceAll('_', ' ');
 
   return (
     <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${mapping[status] || 'bg-neutral-100 text-neutral-600'}`}>

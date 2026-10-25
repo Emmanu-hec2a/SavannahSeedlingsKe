@@ -8,7 +8,6 @@ import Stepper from '../components/ui/Stepper.jsx';
 import ProductCard from '../components/product/ProductCard.jsx';
 import ProductGallery from '../components/product/ProductGallery.jsx';
 import RatingStars from '../components/ui/RatingStars.jsx';
-import ColorSwatchPicker from '../components/product/ColorSwatchPicker.jsx';
 import SizePicker from '../components/product/SizePicker.jsx';
 import { WishlistContext } from '../context/WishlistContext.jsx';
 import { useCart } from '../hooks/useCart.js';
@@ -22,8 +21,6 @@ export default function ProductDetail() {
   const [related, setRelated] = useState([]);
   const [isLoading, setLoading] = useState(true);
 
-  const [color, setColor] = useState(null);
-  const [size, setSize] = useState('Regular');
   const [quantity, setQuantity] = useState(1);
 
   const wishlist = useContext(WishlistContext);
@@ -41,14 +38,8 @@ export default function ProductDetail() {
 
         setProduct(data);
         setRelated(relatedData.results || relatedData);
-
-        // Set default color from first variant if available
-        if (data.variants && data.variants.length > 0) {
-          setColor({ name: data.variants[0].color_name, hex: data.variants[0].color_hex });
-          setSize(data.variants[0].size);
-        }
       } catch (err) {
-        console.error('Failed to fetch product details', err);
+        console.error('Failed to fetch seedling details', err);
       } finally {
         setLoading(false);
       }
@@ -57,31 +48,29 @@ export default function ProductDetail() {
   }, [slug]);
 
   if (isLoading) {
-    return <div className="container" style={{ padding: '100px 0', textAlign: 'center' }}><h3>Loading bag details...</h3></div>;
+    return <div className="container" style={{ padding: '100px 0', textAlign: 'center' }}><h3>Loading seedling details...</h3></div>;
   }
 
   if (!product) {
-    return <div className="container" style={{ padding: '100px 0', textAlign: 'center' }}><h3>Product not found.</h3><Link to="/shop" className="btn btn-outline" style={{ marginTop: 20 }}>Back to Shop</Link></div>;
+    return <div className="container" style={{ padding: '100px 0', textAlign: 'center' }}><h3>Seedling not found.</h3><Link to="/shop" className="btn btn-outline" style={{ marginTop: 20 }}>Back to Shop</Link></div>;
   }
 
-  // Derive unique colors from variants
-  const uniqueColors = product.variants ? [...new Map(product.variants.map(v => [v.color_name, { name: v.color_name, hex: v.color_hex }])).values()] : [];
-  const uniqueSizes = product.variants ? [...new Set(product.variants.map(v => v.size))] : ['Regular'];
+  const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
 
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
     "name": product.name,
-    "image": product.primary_image || "https://tinahstore.store/og-image.png",
+    "image": product.primary_image || "https://savannahseedlings.co.ke/og-image.png",
     "description": product.description,
     "sku": product.id.toString(),
     "brand": {
       "@type": "Brand",
-      "name": "TinahStore"
+      "name": "Savannah Seedlings"
     },
     "offers": {
       "@type": "Offer",
-      "url": `https://tinahstore.store/product/${slug}`,
+      "url": `https://savannahseedlings.co.ke/product/${slug}`,
       "priceCurrency": "KES",
       "price": product.price,
       "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
@@ -89,8 +78,8 @@ export default function ProductDetail() {
     },
     "aggregateRating": {
       "@type": "AggregateRating",
-      "ratingValue": product.rating || 4.8,
-      "reviewCount": product.reviews || 10
+      "ratingValue": product.rating || 4.9,
+      "reviewCount": product.reviews || 15
     }
   };
 
@@ -102,27 +91,34 @@ export default function ProductDetail() {
         "@type": "ListItem",
         "position": 1,
         "name": "Home",
-        "item": "https://tinahstore.store/"
+        "item": "https://savannahseedlings.co.ke/"
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Shop",
-        "item": "https://tinahstore.store/shop"
+        "item": "https://savannahseedlings.co.ke/shop"
       },
       {
         "@type": "ListItem",
         "position": 3,
         "name": product.name,
-        "item": `https://tinahstore.store/product/${slug}`
+        "item": `https://savannahseedlings.co.ke/product/${slug}`
       }
     ]
   };
 
+  const whatsappMessage = encodeURIComponent(
+    `Hello Savannah Seedlings, I would like to order ${quantity}x ${product.name} (KES ${product.price} each). Please advise on delivery.`
+  );
+
+  const defaultPlantingProcedure = product.planting_procedure ||
+    `1. Dig a hole measuring 2ft x 2ft x 2ft (60cm x 60cm x 60cm).\n2. Separate topsoil from subsoil and mix topsoil with well-rotted manure (15-20kg).\n3. Carefully remove the plastic sleeve without disturbing the root ball.\n4. Place the seedling graft union 2-3 inches above ground level.\n5. Water thoroughly immediately after planting (20 liters) and mulch to conserve moisture.`;
+
   return (
     <>
       <SEO
-        title={product.name}
+        title={`${product.name} - Savannah Seedlings`}
         description={product.description}
         image={product.primary_image}
         url={`/product/${slug}`}
@@ -133,85 +129,101 @@ export default function ProductDetail() {
         <nav className="breadcrumb">
           <Link to="/">Home</Link>
           <span className="sep">/</span>
-          <Link to="/shop">Shop</Link>
+          <Link to="/shop">Shop Seedlings</Link>
           <span className="sep">/</span>
           <span className="current">{product.name}</span>
         </nav>
 
         <div className="pd-layout">
-          <ProductGallery product={product} color={color?.hex} />
+          <ProductGallery product={product} />
 
           <div className="pd-info">
             <p className="eyebrow">
-              {typeof product.category === 'object' ? product.category.name : product.category}
-              {product.material && ` - ${product.material}`}
+              🌱 {categoryName || 'Certified Grafted Seedling'}
             </p>
             <h1>{product.name}</h1>
 
             <div className="pd-rating">
-              <RatingStars rating={product.rating || 4.8} reviews={product.reviews || 0} />
-              <a href="#reviews" style={{ marginLeft: 12 }}>View reviews</a>
+              <RatingStars rating={product.rating || 4.9} reviews={product.reviews || 15} />
+              <a href="#planting-procedure" style={{ marginLeft: 12 }}>Planting Guide</a>
             </div>
 
             <div className="pd-price">
               <HangTag price={product.price} compareAt={product.original_price} />
-              <span className="muted" style={{ fontSize: 13 }}>{formatKes(product.price)}, incl. VAT</span>
+              <span className="muted" style={{ fontSize: 13 }}>{formatKes(product.price)} / seedling</span>
             </div>
 
             <p className="pd-desc">{product.description}</p>
 
-            {uniqueColors.length > 0 && (
-              <div className="option-group">
-                <div className="label-row"><span>Colour</span><span className="selected">{color?.name}</span></div>
-                <ColorSwatchPicker colors={uniqueColors} selected={color} onChange={setColor} />
-              </div>
-            )}
-
-            <div className="option-group">
-              <div className="label-row"><span>Size</span><span className="selected">{size}</span></div>
-              <SizePicker sizes={uniqueSizes} selected={size} onChange={setSize} />
-            </div>
-
             <div className="qty-row">
               <Stepper value={quantity} onChange={setQuantity} />
-              <span className="muted" style={{ fontSize: 13 }}>Max 10 per order</span>
+              <span className="muted" style={{ fontSize: 13 }}>Quantity of seedlings</span>
             </div>
 
-            <div className="pd-actions">
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  cart.addItem(product, { color: color?.name, size, quantity });
-                  showToast(`${product.name} added to cart!`);
-                }}
+            <div className="pd-actions" style={{ flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    cart.addItem(product, { quantity });
+                    showToast(`${quantity}x ${product.name} added to cart!`);
+                  }}
+                >
+                  <Icon name="leaf" className="icon icon-sm" /> Add to Order
+                </button>
+                <button
+                  className={`icon-btn ${wishlist.ids.includes(product.id) ? 'active' : ''}`}
+                  aria-label="Add to wishlist"
+                  onClick={() => wishlist.toggle(product.id)}
+                >
+                  <Icon name="heart" />
+                </button>
+              </div>
+
+              <a
+                href={`https://wa.me/254710583989?text=${whatsappMessage}`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn"
+                style={{ backgroundColor: '#25D366', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none', fontWeight: 600 }}
               >
-                <Icon name="bag" className="icon icon-sm" /> Add to cart
-              </button>
-              <button
-                className={`icon-btn ${wishlist.ids.includes(product.id) ? 'active' : ''}`}
-                aria-label="Add to wishlist"
-                onClick={() => wishlist.toggle(product.id)}
-              >
-                <Icon name="heart" />
-              </button>
-              <button className="icon-btn" aria-label="Share"><Icon name="share" /></button>
+                <Icon name="whatsapp" className="icon icon-sm" /> Order directly on WhatsApp
+              </a>
             </div>
 
             <div className="stock-note">
               <Icon name="checkCircle" className="icon icon-sm" />
-              {product.stock > 0 ? `In stock (${product.stock} available)` : 'Out of stock'}
+              {product.stock > 0 ? `In stock at nursery (${product.stock} seedlings available)` : 'Out of stock - Next grafting drop coming soon'}
             </div>
 
             <div className="pd-trust">
-              <div className="trust-item"><Icon name="shield" /><span style={{ fontSize: 12.5 }}>M-PESA Secure</span></div>
-              <div className="trust-item"><Icon name="refresh" /><span style={{ fontSize: 12.5 }}>7-day exchange</span></div>
-              <div className="trust-item"><Icon name="leaf" /><span style={{ fontSize: 12.5 }}>Nairobi Crafted</span></div>
+              <div className="trust-item"><Icon name="shield" /><span style={{ fontSize: 12.5 }}>Arrange payment on WhatsApp</span></div>
+              <div className="trust-item"><Icon name="truck" /><span style={{ fontSize: 12.5 }}>Delivery quoted by the nursery</span></div>
+              <div className="trust-item"><Icon name="leaf" /><span style={{ fontSize: 12.5 }}>Certified Grafted</span></div>
             </div>
 
-            <Accordion items={[
-              { title: 'Material & care', content: product.material_care || 'Full-grain leather, cotton canvas lining. Wipe clean with a dry or slightly damp cloth. Avoid prolonged direct sun. Store with the dust bag provided when not in use.' },
-              { title: 'Shipping & returns', content: 'Nairobi: 24-48 hrs by rider. Upcountry: 3-5 working days. 7-day exchange window; items must be unused with tags attached.' },
-            ]} />
+            <div id="planting-procedure" style={{ marginTop: 20 }}>
+              <div style={{ background: '#e8f5e9', border: '1px solid #c8e6c9', padding: '16px', borderRadius: '8px', marginBottom: '20px' }}>
+                <h4 style={{ color: '#1b5e20', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', margin: 0, fontSize: '15px' }}>
+                  <Icon name="leaf" /> Planting & Care Procedure
+                </h4>
+                <div style={{ marginTop: '10px', fontSize: '13.5px', color: '#2e7d32', whitespace: 'pre-line', lineHeight: '1.6' }}>
+                  {defaultPlantingProcedure}
+                </div>
+              </div>
+
+              <Accordion items={[
+                {
+                  title: '📍 Nursery Locations & Pickups',
+                  content: '1. Nairobi Nursery: Kasarani Kastemil Junction, Nairobi.\n2. Murang\'a Nursery: Kwa Samaki Murang\'a along Nairobi-Nyeri Highway.\n\nYou can pick up directly from either nursery or request delivery.'
+                },
+                {
+                  title: '🚚 Delivery Details & Rates',
+                  content: 'Delivery is arranged with our nursery on WhatsApp. Share your county, town and delivery address at checkout. The seller will agree the delivery fee and final total with you before payment; no fixed delivery fee is charged online.'
+                },
+              ]} />
+            </div>
           </div>
         </div>
       </div>
@@ -220,7 +232,7 @@ export default function ProductDetail() {
         <section>
           <div className="container">
             <div className="section-head">
-              <div><p className="eyebrow">Pairs well</p><h2 className="h2">You may also like</h2></div>
+              <div><p className="eyebrow">Complementary Fruit Seedlings</p><h2 className="h2">You may also like</h2></div>
             </div>
             <div className="product-grid">
               {related.map((item) => <ProductCard product={item} key={item.id} />)}

@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import ScrollToTop from './components/common/ScrollToTop.jsx';
 import Layout from './components/layout/Layout.jsx';
 import Home from './pages/Home.jsx';
@@ -11,11 +11,29 @@ import Wishlist from './pages/Wishlist.jsx';
 import Account from './pages/Account.jsx';
 import Signup from './pages/Signup.jsx';
 
+const legacyRoutes = {
+  '/index.html': '/',
+  '/shop.html': '/shop',
+  '/cart.html': '/cart',
+  '/checkout.html': '/checkout',
+  '/confirmation.html': '/confirmation',
+  '/product.html': '/shop',
+  '/product': '/shop',
+};
+
+function LegacyPageRedirect({ to }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={`${to}${search}${hash}`} replace />;
+}
+
 export default function App() {
   return (
     <>
       <ScrollToTop />
       <Routes>
+        {Object.entries(legacyRoutes).map(([path, to]) => (
+          <Route key={path} path={path} element={<LegacyPageRedirect to={to} />} />
+        ))}
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="/shop" element={<Shop />} />

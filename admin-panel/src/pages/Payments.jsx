@@ -123,7 +123,7 @@ const Payments = () => {
                     <p className="text-2xl font-mono font-bold text-orange-400">KSh {stats.balance_outstanding.toLocaleString()}</p>
                 </div>
                 <div className="flex-1 min-w-[200px] border-l border-white/10 pl-6">
-                    <p className="text-xs text-neutral-400 uppercase font-bold tracking-widest mb-1">Pending Deposits</p>
+                    <p className="text-xs text-neutral-400 uppercase font-bold tracking-widest mb-1">Awaiting Confirmation / Payment</p>
                     <p className="text-2xl font-mono font-bold text-cyan-400">{stats.pending_deposits_count} orders</p>
                 </div>
             </div>

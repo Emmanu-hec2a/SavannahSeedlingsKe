@@ -4,12 +4,17 @@ from django.conf import settings
 from django.conf.urls.static import static
 from core.views_admin import admin_dashboard_stats, get_me, change_password
 from core.views_auth import GoogleLogin
+from core.views_admin_auth import AdminLoginView, AdminSessionView, AdminLogoutView, AdminPasswordView
 from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
     path('api/v1/auth/token/', obtain_auth_token, name='api_token_auth'),
+    path('api/v1/admin/auth/login/', AdminLoginView.as_view(), name='admin_login'),
+    path('api/v1/admin/auth/me/', AdminSessionView.as_view(), name='admin_session'),
+    path('api/v1/admin/auth/logout/', AdminLogoutView.as_view(), name='admin_logout'),
+    path('api/v1/admin/auth/password/', AdminPasswordView.as_view(), name='admin_password'),
     path('api/v1/auth/me/', get_me, name='auth_me'),
     path('api/v1/auth/change-password/', change_password, name='change_password'),
     path('api/v1/auth/google/', GoogleLogin.as_view(), name='google_login'),

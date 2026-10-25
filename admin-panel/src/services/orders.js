@@ -16,6 +16,11 @@ export const ordersService = {
     return response.data;
   },
 
+  quoteDelivery: async (orderNumber, deliveryFee) => {
+    const response = await api.patch(`/orders/${orderNumber}/`, { delivery_fee: deliveryFee });
+    return response.data;
+  },
+
   markDelivered: async (orderNumber) => {
     const response = await api.patch(`/orders/${orderNumber}/`, {
         status: 'delivered',

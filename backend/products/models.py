@@ -30,6 +30,7 @@ class Product(models.Model):
     slug = models.SlugField(unique=True, blank=True)
     category = models.ForeignKey(Category, related_name='products', on_delete=models.CASCADE)
     description = models.TextField()
+    planting_procedure = models.TextField(blank=True, default='')
     price = models.DecimalField(max_digits=10, decimal_places=2)
     original_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     material = models.CharField(max_length=100, blank=True)

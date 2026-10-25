@@ -58,7 +58,7 @@ def admin_dashboard_stats(request):
     ).aggregate(total=Sum('deposit_amount'))['total'] or 0
     
     # 3. Pending deposits
-    pending_deposits_count = Order.objects.filter(status='pending_deposit').count()
+    pending_deposits_count = Order.objects.filter(status__in=['pending_confirmation', 'pending_deposit']).count()
     pending_deposits_total = Order.objects.filter(status='pending_deposit').aggregate(total=Sum('deposit_amount'))['total'] or 0
     
     # 4. Balance to collect

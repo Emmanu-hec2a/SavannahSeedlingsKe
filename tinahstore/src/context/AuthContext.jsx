@@ -1,10 +1,10 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
+import { API_BASE_URL as API_URL } from '../services/apiBase.js';
 
 const AuthContext = createContext();
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);

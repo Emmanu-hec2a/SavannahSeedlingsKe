@@ -15,6 +15,8 @@ export default function ProductCard({ product, quickAdd = false, className = '' 
   const { showToast } = useToast();
   const wished = wishlist.ids.includes(product.id);
 
+  const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
+
   return (
     <Link to={`/product/${product.slug}`} className={`product-card ${className}`}>
       <div className="media">
@@ -46,16 +48,16 @@ export default function ProductCard({ product, quickAdd = false, className = '' 
                 showToast(`${product.name} added to cart!`);
               }}
             >
-              Quick add <Icon name="bag" className="icon icon-sm" />
+              Add Seedling <Icon name="leaf" className="icon icon-sm" />
             </button>
           </div>
         )}
       </div>
       <div className="body">
-        <div className="cat">{product.category}</div>
+        <div className="cat">{categoryName || 'Fruit Seedling'}</div>
         <h3>{product.name}</h3>
-        <RatingStars rating={product.rating} reviews={product.reviews} compact={!quickAdd} />
-        <HangTag price={product.price} compareAt={product.compareAt} />
+        <RatingStars rating={product.rating || 4.9} reviews={product.reviews || 12} compact={!quickAdd} />
+        <HangTag price={product.price} compareAt={product.compareAt || product.original_price} />
       </div>
     </Link>
   );

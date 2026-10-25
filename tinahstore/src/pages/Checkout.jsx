@@ -1,214 +1,145 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useContext } from 'react';
+import { useRef, useState } from 'react';
 import Footer from '../components/layout/Footer.jsx';
 import Icon from '../components/icons/Icon.jsx';
 import ProductArt from '../components/product/ProductArt.jsx';
+import SavannahLogo from '../components/common/SavannahLogo.jsx';
 import { formatKes } from '../data/products.js';
 import { useCart } from '../hooks/useCart.js';
 import { api } from '../services/api.js';
-import { WishlistContext } from '../context/WishlistContext.jsx';
+import { checkoutAttempt, clearCheckoutAttempt, saveCheckoutOrder, whatsappOrderUrl } from '../services/orderCheckout.js';
 
 export default function Checkout() {
-  const [payment, setPayment] = useState('manual');
   const [isSubmitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-  const [deliveryArea, setDeliveryArea] = useState('nairobi');
-  const [transactionCode, setTransactionCode] = useState('');
-
-  const wishlist = useContext(WishlistContext);
+  const [error, setError] = useState('');
+  const submitting = useRef(false);
+  const attempt = useRef(null);
   const cart = useCart();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (deliveryArea === 'nairobi') {
-      cart.setDeliveryFee(150);
-    } else {
-      cart.setDeliveryFee(0); // Show as variable/TBD
-    }
-  }, [deliveryArea]);
-
   async function placeOrder(event) {
     event.preventDefault();
-    setError(null);
+    if (submitting.current || !cart.items.length) return;
+    submitting.current = true;
     setSubmitting(true);
-
-    const formData = new FormData(event.currentTarget);
+    setError('');
+    const data = new FormData(event.currentTarget);
     const payload = {
-      customer_name: formData.get('fullName'),
-      customer_email: formData.get('email'),
-      customer_phone: formData.get('phone'),
-      delivery_address: formData.get('address'),
-      city: formData.get('city'),
-      county: formData.get('county'),
-      payment_method: 'mpesa_manual',
-      transaction_code: transactionCode,
-      items: cart.items.map(item => ({
-        product_slug: item.product.slug,
-        variant_id: item.variantId || null,
-        quantity: item.quantity
-      }))
+      customer_name: data.get('fullName').trim(),
+      customer_email: data.get('email').trim(),
+      customer_phone: data.get('phone').trim(),
+      delivery_address: data.get('address').trim(),
+      city: data.get('city').trim(),
+      county: data.get('county').trim(),
+      payment_method: 'whatsapp',
+      items: cart.items.map(item => ({ product_slug: item.product.slug, quantity: item.quantity })),
     };
-
+    const signature = JSON.stringify(payload);
+    if (attempt.current?.signature !== signature) attempt.current = checkoutAttempt(payload);
+    // Open during the user's click so mobile browsers can allow the WhatsApp handoff.
+    // The confirmation page always offers the same link if popups are blocked.
+    let whatsappWindow = null;
     try {
-      const response = await api.createOrder(payload);
+      whatsappWindow = window.open('about:blank', '_blank');
+      if (whatsappWindow) whatsappWindow.opener = null;
+    } catch { /* Continue using the saved confirmation page. */ }
 
-      // Clear cart after successful order creation
-      cart.clear();
-
-      navigate('/confirmation', {
-        state: {
-          order: response,
-          checkoutRequestId: response.checkout_request_id
-        },
-      });
+    let order;
+    try {
+      order = await api.createOrder({ ...payload, checkout_key: attempt.current.key });
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.');
-    } finally {
+      whatsappWindow?.close();
+      setError(err.message || 'Your order could not be saved. Your cart has been kept. Please try again.');
+      submitting.current = false;
       setSubmitting(false);
+      return;
     }
+    saveCheckoutOrder(order);
+    clearCheckoutAttempt();
+    cart.clear();
+    navigate(`/confirmation?order=${encodeURIComponent(order.order_number)}`, { state: { order } });
+    try {
+      if (whatsappWindow && !whatsappWindow.closed) whatsappWindow.location.replace(whatsappOrderUrl(order));
+    } catch { /* The confirmation page has a retry link; do not create another order. */ }
   }
 
   return (
     <>
-      <header className="checkout-header"><div className="container"><Link to="/" className="logo">Tinah<span>Store</span></Link><div className="secure-pill"><Icon name="lock" className="icon icon-sm" /> Secure checkout</div></div></header>
-      <div className="container">
-        <div className="steps"><div className="step done"><span className="num"><Icon name="check" className="icon icon-sm" /></span> Bag</div><div className="step-line"></div><div className="step active"><span className="num">2</span> Checkout</div><div className="step-line"></div><div className="step"><span className="num">3</span> Confirmation</div></div>
-
-        {error && (
-          <div className="alert alert-error" style={{ marginTop: 20, padding: '12px 16px', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: 8, fontSize: 14 }}>
-            <Icon name="alertCircle" className="icon icon-sm" /> {error}
+      <header className="checkout-header"><div className="container">
+        <Link to="/" className="logo"><SavannahLogo /></Link>
+        <span className="secure-pill"><Icon name="whatsapp" className="icon icon-sm" /> WhatsApp checkout</span>
+      </div></header>
+      <main className="container checkout-page">
+        <nav className="steps" aria-label="Checkout progress">
+          <Link to="/cart" className="step done"><span className="num"><Icon name="check" className="icon icon-sm" /></span> Cart</Link>
+          <div className="step-line" />
+          <span className="step active" aria-current="step"><span className="num">2</span> Delivery</span>
+          <div className="step-line" />
+          <span className="step"><span className="num">3</span> WhatsApp</span>
+        </nav>
+        <div className="checkout-intro">
+          <h1 className="h2">Let’s arrange your seedling delivery.</h1>
+          <p className="lede">Save your order and continue on WhatsApp. Our nursery team will agree delivery charges and payment with you before you pay.</p>
+        </div>
+        {!cart.items.length ? (
+          <div className="checkout-notice"><p>Your cart is empty. Add seedlings to start your order.</p><Link to="/shop" className="btn btn-primary">Shop seedlings</Link></div>
+        ) : (
+          <div className="checkout-layout">
+            <form onSubmit={placeOrder} aria-busy={isSubmitting}>
+              {error && <div role="alert" className="checkout-error">{error}</div>}
+              <fieldset className="checkout-fields" disabled={isSubmitting}>
+                <div className="form-section">
+                  <h2 className="h3">Contact details</h2>
+                  <div className="form-grid">
+                    <Field label="Full name" name="fullName" autoComplete="name" placeholder="e.g. Samuel Maina" maxLength={100} className="full" />
+                    <Field label="Phone / WhatsApp number" name="phone" type="tel" autoComplete="tel" placeholder="e.g. 0712345678" maxLength={15} />
+                    <Field label="Email address" name="email" type="email" autoComplete="email" placeholder="you@example.com" maxLength={254} />
+                  </div>
+                </div>
+                <div className="form-section">
+                  <h2 className="h3">Where should we deliver?</h2>
+                  <div className="form-grid">
+                    <Field label="County" name="county" autoComplete="address-level1" placeholder="e.g. Kiambu" maxLength={50} />
+                    <Field label="Town / area" name="city" autoComplete="address-level2" placeholder="e.g. Ruiru, Kimbo" maxLength={50} />
+                    <div className="form-field full">
+                      <label htmlFor="checkout-address">Farm / delivery address and nearest landmark</label>
+                      <textarea id="checkout-address" name="address" autoComplete="street-address" rows={3} maxLength={1500} placeholder="Farm name, road, estate, gate or a nearby landmark" aria-describedby="delivery-location-help" required />
+                      <p id="delivery-location-help" className="checkout-fine-print">You can share a location pin with the seller in WhatsApp if more directions are needed.</p>
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
+              <div className="checkout-notice">
+                <Icon name="whatsapp" />
+                <div><strong>Delivery and payment, agreed together.</strong><p>No payment is taken here. Delivery is quoted by the nursery based on your location and order. You’ll review and send the prepared message in WhatsApp.</p></div>
+              </div>
+              <button type="submit" className="btn btn-primary btn-block checkout-submit" disabled={isSubmitting}>
+                <Icon name="whatsapp" />{isSubmitting ? 'Saving your order…' : 'Save order & continue on WhatsApp'}
+              </button>
+              <p className="checkout-fine-print">Your order is saved before WhatsApp opens. Opening WhatsApp does not send the message or confirm payment.</p>
+            </form>
+            <aside className="summary-card checkout-summary" aria-label="Seedling order summary">
+              <h2 className="h3">Your seedlings</h2>
+              <div className="mini-cart">{cart.items.map(item => (
+                <div className="mini-row" key={item.productId}>
+                  <div className="thumb-box">{item.product.image || item.product.primary_image || item.product.images?.[0]?.image ? <img src={item.product.image || item.product.primary_image || item.product.images[0].image} alt={item.product.name} className="product-image" /> : <ProductArt product={item.product} color="#2E7D32" />}</div>
+                  <div><div className="name">{item.product.name}</div><div className="qty-tag">{item.quantity} seedlings</div></div>
+                  <span className="price">{formatKes(Number(item.product.price) * item.quantity)}</span>
+                </div>
+              ))}</div>
+              <div className="summary-row total"><span>Seedling subtotal</span><span>{formatKes(cart.subtotal)}</span></div>
+              <div className="summary-row"><span>Delivery</span><span>Quoted on WhatsApp</span></div>
+              <p className="checkout-fine-print">Final total confirmed after delivery arrangements. Seedling prices are checked when your order is saved.</p>
+              <Link to="/cart" className="account-link">Edit your cart</Link>
+            </aside>
           </div>
         )}
-
-        <div className="checkout-layout" style={{ marginTop: 20, paddingBottom: 90 }}>
-          <form onSubmit={placeOrder}>
-            <div className="form-section">
-              <h3>Contact & shipping details</h3>
-              <div className="form-grid">
-                <Field className="full" label="Full name" name="fullName" placeholder="Amani Njoroge" required />
-                <Field label="Phone number" name="phone" placeholder="0712345678" type="tel" required />
-                <Field label="Email" name="email" placeholder="amani@email.com" type="email" required />
-                <Field className="full" label="Delivery address" name="address" placeholder="Street, building, apartment" required />
-                <div className="form-field">
-                  <label>Delivery Area</label>
-                  <select
-                    name="deliveryArea"
-                    value={deliveryArea}
-                    onChange={(e) => setDeliveryArea(e.target.value)}
-                    required
-                  >
-                    <option value="nairobi">Nairobi, Juja, Thika, Thika Rd (KES 150)</option>
-                    <option value="other">Outside these areas (Fee varies)</option>
-                  </select>
-                </div>
-                <Field label="City / Town" name="city" placeholder="Nairobi" required />
-                <div className="form-field">
-                  <label>County</label>
-                  <select name="county" required>
-                    <option value="Nairobi">Nairobi</option>
-                    <option value="Mombasa">Mombasa</option>
-                    <option value="Kisumu">Kisumu</option>
-                    <option value="Nakuru">Nakuru</option>
-                    <option value="Kiambu">Kiambu</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div className="form-section">
-              <h3>Payment method</h3>
-              <div className="pay-options">
-                <PayOption active={payment === 'manual'} onChange={() => setPayment('manual')} name="pay" value="manual" icon="phone" label="M-PESA / Airtel Money (Manual Verification)">
-                  <div style={{ background: 'var(--teal-pale)', padding: '14px', borderRadius: 8, fontSize: 13, color: 'var(--teal-ink)', marginBottom: 16, border: '1px solid var(--hairline)' }}>
-                    <p><b>Instructions:</b></p>
-                    <p style={{ marginTop: 6 }}>1. Send the 60% deposit (<b>{formatKes(cart.total * 0.6)}</b>) to the number below:</p>
-                    <div style={{ marginTop: 10, padding: '10px', background: 'var(--surface)', borderRadius: 6, border: '1px solid var(--hairline)' }}>
-                      <p><b>M-PESA:</b> 0726911763 (CHRISTINE)</p>
-                      <p><b>Airtel Money:</b> 0750243752 (CHRISTINE)</p>
-                    </div>
-                    <p style={{ marginTop: 12 }}>2. Enter your <b>Transaction Code</b> below (e.g., RJL1234567):</p>
-                    <input
-                      type="text"
-                      placeholder="Transaction Code"
-                      value={transactionCode}
-                      onChange={(e) => setTransactionCode(e.target.value.toUpperCase())}
-                      style={{
-                        width: '100%',
-                        marginTop: 8,
-                        padding: '10px',
-                        borderRadius: 6,
-                        border: '1px solid var(--hairline)',
-                        textTransform: 'uppercase',
-                        fontWeight: 'bold'
-                      }}
-                      required={payment === 'manual'}
-                    />
-                  </div>
-                  <p className="muted" style={{ fontSize: 12 }}>Your order will be verified manually. Remaining 40% balance is paid on delivery.</p>
-                </PayOption>
-              </div>
-            </div>
-            <button
-              className="btn btn-primary btn-block"
-              disabled={isSubmitting || cart.items.length === 0 || (payment === 'manual' && !transactionCode)}
-            >
-              {isSubmitting ? 'Placing order...' : 'Confirm Order & Pay Deposit'}
-            </button>
-          </form>
-          <aside><OrderSummary cart={cart} /></aside>
-        </div>
-      </div>
+      </main>
       <Footer compact />
     </>
   );
 }
 
-function Field({ label, name, className = '', type = 'text', placeholder, required = false, disabled = false }) {
-  return (
-    <div className={`form-field ${className}`}>
-      <label>{label}</label>
-      <input name={name} type={type} placeholder={placeholder} required={required} disabled={disabled} />
-    </div>
-  );
-}
-
-function PayOption({ active, onChange, name, value, icon, label, children }) {
-  return <div className={`pay-option ${active ? 'active' : ''}`}><label className="head"><input type="radio" name={name} value={value} checked={active} onChange={onChange} /><Icon name={icon} /> {label}</label><div className="pay-fields">{children}</div></div>;
-}
-
-function OrderSummary({ cart }) {
-  return (
-    <div className="summary-card" style={{ position: 'static' }}>
-      <h3>Order summary</h3>
-      <div className="mini-cart">
-        {cart.items.map((item) => (
-          <div className="mini-row" key={`${item.productId}-${item.color}-${item.size}`}>
-            <div className="thumb-box">
-              {(item.product.image || item.product.primary_image || (item.product.images && item.product.images[0]?.image)) ? (
-                <img
-                  src={item.product.image || item.product.primary_image || item.product.images[0]?.image}
-                  alt={item.product.name}
-                  className="product-image"
-                />
-              ) : (
-                <ProductArt product={item.product} color="#0D3B36" />
-              )}
-            </div>
-            <div><div className="name">{item.product.name}</div><div className="qty-tag">{[item.color, item.size, `x${item.quantity}`].filter(Boolean).join(' - ')}</div></div><div className="price">{(item.product.price * item.quantity).toLocaleString('en-KE')}</div>
-          </div>
-        ))}
-      </div>
-      <div className="summary-row"><span>Subtotal</span><span>{formatKes(cart.subtotal)}</span></div>
-      <div className="summary-row">
-        <span>Delivery {cart.deliveryFee > 0 ? '' : '(TBD)'}</span>
-        <span>{cart.deliveryFee > 0 ? formatKes(cart.deliveryFee) : 'variable'}</span>
-      </div>
-      <div className="summary-row total"><span>Total</span><span>{formatKes(cart.total)}</span></div>
-      <div className="summary-row" style={{ color: 'var(--teal-mid)', fontWeight: 600 }}>
-        <span>60% Deposit</span>
-        <span>{formatKes(cart.total * 0.6)}</span>
-      </div>
-      <div className="secure-note"><Icon name="lock" className="icon icon-sm" /> Secure SSL encrypted payment</div>
-    </div>
-  );
+function Field({ label, name, className = '', ...props }) {
+  return <div className={`form-field ${className}`}><label htmlFor={`checkout-${name}`}>{label}</label><input id={`checkout-${name}`} name={name} required {...props} /></div>;
 }

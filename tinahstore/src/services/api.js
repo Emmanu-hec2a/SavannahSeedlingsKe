@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+import { API_BASE_URL } from './apiBase.js';
 
 async function request(path, options = {}) {
   const token = localStorage.getItem('ts_auth_token');
@@ -46,7 +46,9 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(payload)
   }),
-  getOrder: (orderNumber) => request(`/orders/${orderNumber}/`),
+  getOrder: (orderNumber, accessToken) => request(`/orders/${encodeURIComponent(orderNumber)}/`, {
+    headers: accessToken ? { 'X-Order-Token': accessToken } : {},
+  }),
   listUserOrders: () => request('/orders/'),
 
   // Payments

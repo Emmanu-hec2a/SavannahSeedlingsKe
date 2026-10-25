@@ -2,7 +2,9 @@ import json
 from rest_framework import generics, filters, status
 from rest_framework.response import Response
 from django.utils.decorators import method_decorator
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from core.permissions import StaffWriteOrReadOnly
 from django.views.decorators.cache import cache_page
 from django.shortcuts import get_object_or_404
 from .models import Category, Product
@@ -17,6 +19,7 @@ from io import BytesIO
 import os
 
 @api_view(['GET'])
+@permission_classes([IsAdminUser])
 def debug_storage(request):
     from django.conf import settings
     from django.core.files.storage import default_storage
@@ -52,10 +55,12 @@ def process_image(image_file):
     
     return ContentFile(output.read(), name=name)
 class CategoryListView(generics.ListCreateAPIView):
+    permission_classes = [StaffWriteOrReadOnly]
     queryset = Category.objects.all().order_by('name')
     serializer_class = CategorySerializer
 
 class ProductListView(generics.ListCreateAPIView):
+    permission_classes = [StaffWriteOrReadOnly]
     queryset = Product.objects.all().order_by('-created_at')
     serializer_class = ProductListSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
@@ -118,6 +123,7 @@ class ProductListView(generics.ListCreateAPIView):
         return queryset
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [StaffWriteOrReadOnly]
     queryset = Product.objects.all()
     serializer_class = ProductDetailSerializer
     lookup_field = 'slug'
@@ -177,6 +183,7 @@ class RelatedProductView(generics.ListAPIView):
         ).exclude(id=product.id)[:4]
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [StaffWriteOrReadOnly]
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     lookup_field = 'slug'
@@ -187,6 +194,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 
 @api_view(['POST'])
+@permission_classes([IsAdminUser])
 def test_upload(request):
     if 'image' not in request.FILES:
         return Response({'error': 'No image provided'}, status=400)

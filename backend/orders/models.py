@@ -1,12 +1,16 @@
 import random
 import string
+import uuid
+from decimal import Decimal
 from django.db import models
+from django.db.models import F
 from django.conf import settings
 from products.models import Product, ProductVariant
 
 class Order(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     STATUS_CHOICES = (
+        ('pending_confirmation', 'Awaiting WhatsApp confirmation'),
         ('pending_deposit', 'Pending Deposit'),
         ('confirmed', 'Confirmed'),
         ('shipped', 'Shipped'),
@@ -14,12 +18,15 @@ class Order(models.Model):
         ('cancelled', 'Cancelled'),
     )
     PAYMENT_METHOD_CHOICES = (
+        ('whatsapp', 'Arrange on WhatsApp'),
         ('mpesa', 'M-PESA'),
         ('card', 'Card'),
         ('manual', 'Manual (Send Money)'),
     )
 
     order_number = models.CharField(max_length=10, unique=True, editable=False)
+    access_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    checkout_key = models.UUIDField(null=True, blank=True, unique=True)
     customer_name = models.CharField(max_length=100)
     customer_email = models.EmailField()
     customer_phone = models.CharField(max_length=15)
@@ -28,10 +35,10 @@ class Order(models.Model):
     county = models.CharField(max_length=50)
     payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending_deposit')
-    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2)
-    deposit_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    balance_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    deposit_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    balance_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     deposit_paid = models.BooleanField(default=False)
     balance_collected = models.BooleanField(default=False)
     is_viewed = models.BooleanField(default=False) # New field to track admin view status
@@ -58,11 +65,23 @@ class Order(models.Model):
         Standardizes the logic for confirming a deposit payment.
         Used by both M-PESA callbacks and manual admin actions.
         """
+        if self.delivery_fee is None or self.total_amount is None:
+            raise ValueError('Agree and save the delivery fee before confirming payment.')
+        if self.status == 'cancelled':
+            raise ValueError('A cancelled order cannot be marked as paid.')
         if not self.deposit_paid:
             self.deposit_paid = True
-            if self.status == 'pending_deposit':
+            if self.status in ('pending_deposit', 'pending_confirmation'):
                 self.status = 'confirmed'
             self.save()
+
+    @property
+    def subtotal(self):
+        return sum((item.unit_price * item.quantity for item in self.items.all()), Decimal('0.00'))
+
+    @property
+    def delivery_quoted(self):
+        return self.delivery_fee is not None
 
     def reduce_stock(self):
         """
@@ -85,11 +104,9 @@ class Order(models.Model):
         """
         for item in self.items.all():
             if item.variant:
-                item.variant.stock += item.quantity
-                item.variant.save()
+                ProductVariant.objects.filter(pk=item.variant_id).update(stock=F('stock') + item.quantity)
             else:
-                item.product.stock += item.quantity
-                item.product.save()
+                Product.objects.filter(pk=item.product_id).update(stock=F('stock') + item.quantity)
 
     @property
     def is_fully_reviewed(self):
@@ -108,3 +125,20 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
+
+
+class DeliverySetting(models.Model):
+    nairobi_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    upcountry_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=250.00)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def get_settings(cls):
+        obj, _ = cls.objects.get_or_create(id=1, defaults={
+            'nairobi_delivery_fee': 0.00,
+            'upcountry_delivery_fee': 250.00
+        })
+        return obj
+
+    def __str__(self):
+        return f"Delivery Settings (Nairobi: KES {self.nairobi_delivery_fee}, Upcountry: KES {self.upcountry_delivery_fee})"

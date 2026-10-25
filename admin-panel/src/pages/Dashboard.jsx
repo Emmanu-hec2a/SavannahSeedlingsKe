@@ -37,13 +37,13 @@ const Dashboard = () => {
     },
     {
         header: 'Total',
-        render: (row) => `KSh ${Number(row.total_amount).toLocaleString()}`
+        render: (row) => row.total_amount == null ? 'Awaiting delivery quote' : `KSh ${Number(row.total_amount).toLocaleString()}`
     },
     {
-        header: 'Deposit',
+        header: 'Payment',
         render: (row) => (
             <div className="flex flex-col">
-                <span className="text-xs font-semibold">KSh {Number(row.deposit_amount).toLocaleString()}</span>
+                <span className="text-xs font-semibold">{row.deposit_amount == null ? 'Total not yet agreed' : `KSh ${Number(row.deposit_amount).toLocaleString()}`}</span>
                 {row.deposit_paid ? (
                     <span className="text-[10px] text-green-500 font-bold uppercase">Paid</span>
                 ) : (
@@ -115,7 +115,7 @@ const Dashboard = () => {
           accentColor="green"
         />
         <StatCard
-          label="Pending Deposits"
+          label="Orders Awaiting Confirmation / Payment"
           value={stats.pending_deposits_count}
           sub="Requires attention"
           icon={Clock}
