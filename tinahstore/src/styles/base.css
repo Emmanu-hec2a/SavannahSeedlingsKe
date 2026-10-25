@@ -661,6 +661,9 @@ p{color:var(--ink)}
 .account-benefit{display:flex;gap:14px;align-items:flex-start}
 .account-benefit strong{display:block;color:var(--teal-ink);font-size:14px;margin-bottom:3px}
 .account-benefit span{font-size:13px;color:var(--muted)}
+.google-sign-in-divider{display:flex;align-items:center;gap:12px;margin:24px 0;font-size:12px;color:var(--muted)}
+.google-sign-in-divider::before,.google-sign-in-divider::after{content:'';flex:1;height:1px;background:var(--hairline)}
+.google-sign-in-message{margin-top:20px;font-size:13px;line-height:1.6}
 @media (max-width:900px){.account-layout{grid-template-columns:1fr}}
 
 /* ---------- product detail ---------- */

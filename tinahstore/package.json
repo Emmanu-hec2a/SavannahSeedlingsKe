@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:auth": "node scripts/check-auth.mjs"
   },
   "dependencies": {
     "@react-oauth/google": "^0.12.2",
