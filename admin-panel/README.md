@@ -50,6 +50,38 @@ require staff authorization on the API, not just a frontend route guard.
 
 ## Deploy and verify
 
+### Cloudflare Workers
+
+The checked-in `wrangler.jsonc` deploys this app as static assets from `dist/` to
+the existing `savannahseedlingske-admin` Worker. It explicitly enables React
+single-page-app routing, including direct visits to `/login` and `/orders`.
+It avoids Wrangler's framework auto-configuration; no Vite upgrade or Cloudflare
+Vite plugin is required for this static deployment.
+
+Use these Cloudflare build settings:
+
+- Root directory: `admin-panel`
+- Build command: `npm run build`
+- Deploy command: `npx wrangler deploy`
+
+Use Node.js 22 or newer for the current Wrangler CLI. The app can build with
+Node.js 20, but Wrangler itself will refuse to run on that version.
+
+Set `VITE_API_URL` to the production **HTTPS backend URL** in Cloudflare's build
+environment before building. This value is compiled into the frontend; changing
+only a runtime Worker variable will not update an existing build. Add the deployed
+admin origin to the backend's `CORS_ALLOWED_ORIGINS` as described above.
+
+Commit the configuration and retry the Cloudflare deployment. Local verification
+does not publish the app. If Wrangler is installed, configuration can also be
+checked without publishing with `npx wrangler deploy --dry-run` after building.
+The Vite chunk-size warning is advisory and does not fail the build.
+
+References: [Cloudflare static SPA configuration](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/)
+and [disabling framework auto-configuration with a Wrangler config](https://developers.cloudflare.com/workers/framework-guides/automatic-configuration/).
+
+### Backend and regression checks
+
 Deploy the backend and apply `python manage.py migrate` **before** the rebuilt
 admin frontend. The new `core.0001_admin_session` migration has been applied to
 the local development database only. Existing account passwords are unchanged.
