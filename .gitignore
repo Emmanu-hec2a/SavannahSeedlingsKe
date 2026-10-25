@@ -1,5 +1,6 @@
 /admin-panel/.env
 /admin-panel/node_modules
+/admin-panel/.wrangler/
 
 /backend/.env
 /tinahstore/node_modules

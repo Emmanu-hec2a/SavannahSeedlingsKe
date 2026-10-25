@@ -14,7 +14,19 @@ const expiry = () => new Date(Date.now() + 8 * 3600000).toISOString();
 const user = { id: 123, username: 'qa-staff', email: 'qa@example.test', is_staff: true };
 const stats = { unread_orders_count: 0, unread_orders: [], orders_today: 0, orders_yesterday: 0,
   revenue_today: 0, pending_deposits_count: 0, pending_deposits_total: 0, balance_outstanding: 0,
-  balance_orders_count: 0, orders_last_30_days: [], revenue_last_30_days: [], recent_orders: [] };
+  balance_orders_count: 0, orders_last_30_days: [{date:'2026-10-01', count:2}],
+  revenue_last_30_days: [{date:'2026-10-01', deposit:700, balance:0}], recent_orders: [] };
+const category = {id:1, name:'QA Fruit', slug:'qa-fruit', description:''};
+const product = {id:1, name:'QA Grafted Seedling', slug:'qa-seedling', category,
+  price:'350.00', original_price:null, stock:10, is_active:true,
+  description:'Mock seedling for browser checks', images:[], variants:[]};
+const order = {id:1, order_number:'QA-ORDER', customer_name:'QA Grower',
+  customer_email:'grower@example.test', customer_phone:'0712345678',
+  delivery_address:'QA Farm', city:'Ruiru', county:'Kiambu', payment_method:'whatsapp',
+  status:'pending_confirmation', created_at:'2026-10-01T10:00:00Z',
+  subtotal:'700.00', delivery_fee:null, total_amount:null, deposit_amount:null,
+  balance_amount:null, deposit_paid:false, balance_collected:false, transactions:[],
+  items:[{product_slug:'qa-seedling', quantity:2, unit_price:'350.00'}]};
 
 const injection = `<script>
   const originalOpen = XMLHttpRequest.prototype.open;
@@ -43,7 +55,7 @@ const until = async (fn, label) => {
   throw new Error('Timed out: ' + label + ' | ' + body().slice(0,250));
 };
 const assert = (condition, label) => { if (!condition) throw new Error(label); };
-async function load(name, token, width=390) {
+async function load(name, token, width=390, route='/dashboard') {
   if (frame) frame.remove();
   sessionStorage.clear(); localStorage.clear();
   localStorage.setItem('ts_auth_token', 'customer-untouched');
@@ -52,8 +64,12 @@ async function load(name, token, width=390) {
   qaCase = name;
   frame = document.createElement('iframe');
   frame.width = width; frame.height = 844;
-  frame.src = '/dashboard?case=' + name;
+  // Start render polling after module loading, not while Chrome's virtual clock
+  // can outrun the first uncached asset requests.
+  const loaded = new Promise(resolve => frame.addEventListener('load', resolve, {once:true}));
+  frame.src = route + '?case=' + name;
   document.body.append(frame);
+  await loaded;
   await until(() => doc()?.querySelector('#root')?.childElementCount, name + ' render');
 }
 async function signIn(username) {
@@ -136,6 +152,32 @@ async function test(name, run) {
     assert(localStorage.getItem('ts_auth_token') === 'customer-untouched', 'customer signed out');
     await pause(200);
   });
+  await test('production dashboard renders both chart types', async () => {
+    await load('charts', 'valid-session', 1280);
+    await until(() => doc().querySelector('.recharts-area') && doc().querySelector('.recharts-bar'), 'chart SVGs');
+  });
+  for (const [name, route, text] of [
+    ['inventory', '/products', 'QA Grafted Seedling'],
+    ['new product', '/products/new', 'Seedling Information'],
+    ['edit product', '/products/qa-seedling/edit', 'Seedling Information'],
+    ['orders', '/orders', 'QA-ORDER'],
+    ['order quote', '/orders/QA-ORDER', 'Agreed delivery fee'],
+    ['categories', '/categories', 'QA Fruit'],
+    ['payments', '/payments', 'No payments found'],
+    ['delivery', '/delivery', 'QA-ORDER'],
+    ['settings', '/settings', 'Security & Password'],
+  ]) {
+    await test('production route: ' + name, async () => {
+      await load('route-' + name, 'valid-session', 390, route);
+      await until(() => body().includes(text), route + ' content');
+      assert(frame.contentWindow.location.pathname === route, 'unexpected route redirect');
+      if (name === 'edit product') {
+        assert([...doc().querySelectorAll('input')].some(input => input.value === 'QA Grafted Seedling'), 'product values missing');
+      }
+      if (name === 'order quote') assert(doc().getElementById('delivery-quote'), 'quote form missing');
+      if (name === 'settings') assert(doc().querySelector('input[type="password"]'), 'password form missing');
+    });
+  }
   document.getElementById('qa-results').textContent = JSON.stringify({results, errors:qaErrors});
   if (frame) frame.remove();
 })();
@@ -165,7 +207,21 @@ const server = createServer(async (req, res) => {
         else data = {user:{...user, is_staff:scenario !== 'buyer'},
           expires_at:scenario === 'expired' ? new Date(0).toISOString() : expiry()};
       } else if (url.pathname.endsWith('/auth/logout/')) { status=204; }
-      else if (authenticated) data = stats;
+      else if (authenticated) {
+        const fixtures = {
+          '/api/v1/admin/dashboard/':stats,
+          '/api/v1/categories/':{count:1, results:[category]},
+          '/api/v1/products/':{count:1, results:[product]},
+          '/api/v1/products/qa-seedling/':product,
+          '/api/v1/orders/':{count:1, results:[order]},
+          '/api/v1/orders/QA-ORDER/':order,
+          '/api/v1/orders/delivery-settings/':{nairobi_delivery_fee:'0.00', upcountry_delivery_fee:'250.00'},
+          '/api/v1/payments/transactions/':{count:0, results:[]},
+        };
+        if (req.method !== 'GET' || !(url.pathname in fixtures)) {
+          status=404; data={detail:'Unexpected mock API request'};
+        } else data=fixtures[url.pathname];
+      }
       else { status=401; data={}; }
       res.statusCode=status;
       res.end(status === 204 ? '' : JSON.stringify(data));

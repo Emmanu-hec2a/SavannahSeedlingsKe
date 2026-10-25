@@ -52,11 +52,18 @@ require staff authorization on the API, not just a frontend route guard.
 
 ### Cloudflare Workers
 
-The checked-in `wrangler.jsonc` deploys this app as static assets from `dist/` to
-the existing `savannahseedlingske-admin` Worker. It explicitly enables React
-single-page-app routing, including direct visits to `/login` and `/orders`.
-It avoids Wrangler's framework auto-configuration; no Vite upgrade or Cloudflare
-Vite plugin is required for this static deployment.
+The admin uses Vite **7.3.5** and `@vitejs/plugin-react` **5.2.0**, matching the
+storefront's build-tool versions. React 18, React Router 6, Tailwind 3 and the
+application's runtime dependencies are unchanged. The Vite configuration explicitly
+preserves the previous browser build targets rather than adopting Vite 7's newer
+defaults.
+
+Deploy to the existing `savannahseedlingske-admin` Worker using Cloudflare's
+automatic Vite configuration, as with the storefront. The earlier hand-written
+`wrangler.jsonc` has been removed intentionally; do **not** pass `--config` pointing
+to that removed file. Wrangler can generate the Cloudflare Vite integration and
+deployment configuration during CI. Generated files such as `dist/wrangler.json`
+and `.wrangler/deploy/config.json` are build artifacts, not files to hand-create.
 
 Use these Cloudflare build settings:
 
@@ -64,21 +71,25 @@ Use these Cloudflare build settings:
 - Build command: `npm run build`
 - Deploy command: `npx wrangler deploy`
 
-Use Node.js 22 or newer for the current Wrangler CLI. The app can build with
-Node.js 20, but Wrangler itself will refuse to run on that version.
+Use Node.js **22.12 or newer** for the combined build/deploy workflow. Cloudflare's
+Node 24 build image is compatible. Local Vite-only builds also support Node 20.19+;
+the current Wrangler CLI requires Node 22+, so it cannot run on local Node 20.
 
 Set `VITE_API_URL` to the production **HTTPS backend URL** in Cloudflare's build
 environment before building. This value is compiled into the frontend; changing
 only a runtime Worker variable will not update an existing build. Add the deployed
 admin origin to the backend's `CORS_ALLOWED_ORIGINS` as described above.
 
-Commit the configuration and retry the Cloudflare deployment. Local verification
-does not publish the app. If Wrangler is installed, configuration can also be
-checked without publishing with `npx wrangler deploy --dry-run` after building.
+Commit the updated `package.json`, `package-lock.json`, Vite configuration and
+removal of the old Wrangler file, then start a new Cloudflare deployment from that
+commit. CI uses `npm ci`, so the dependency lockfile must be included. Local
+verification does not publish the app. On Node 22.12+, Wrangler auto-configuration
+can be inspected without deployment using `npx wrangler setup --dry-run`.
 The Vite chunk-size warning is advisory and does not fail the build.
 
-References: [Cloudflare static SPA configuration](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/)
-and [disabling framework auto-configuration with a Wrangler config](https://developers.cloudflare.com/workers/framework-guides/automatic-configuration/).
+References: [Cloudflare automatic configuration](https://developers.cloudflare.com/workers/framework-guides/automatic-configuration/),
+[Vite 6 migration](https://v6.vite.dev/guide/migration) and
+[Vite 7 migration](https://v7.vite.dev/guide/migration).
 
 ### Backend and regression checks
 
@@ -101,7 +112,9 @@ npm run test:auth
 The browser checks use mock APIs, not real staff credentials or customer data.
 They require Chrome (set `CHROME_PATH` if it is not at the default Windows path).
 They cover direct-route protection, legacy/forged/expired/nonstaff sessions,
-refresh, outage/retry, sign-in and logout. Backend tests use an isolated in-memory
+refresh, outage/retry, sign-in and logout. They also smoke-test all protected admin
+pages, populated dashboard charts, product forms and the WhatsApp delivery quote
+form against the production bundle. Backend tests use an isolated in-memory
 database and do not call M-PESA, Telegram or external storage.
 
 The login throttle currently uses Django's configured cache; use a shared cache
