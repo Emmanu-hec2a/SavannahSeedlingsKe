@@ -126,7 +126,7 @@ const Categories = () => {
                             type="text" required
                             value={formData.name}
                             onChange={(e) => handleNameChange(e.target.value)}
-                            className="input" placeholder="e.g. Totes"
+                            className="input" placeholder="e.g. Avocado Seedlings"
                         />
                     </div>
                     <div className="space-y-1.5">
@@ -135,7 +135,7 @@ const Categories = () => {
                             type="text" required
                             value={formData.slug}
                             onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                            className="input font-mono text-xs"
+                            className="input font-mono text-xs" placeholder="e.g. avocado-seedlings"
                         />
                     </div>
                     <div className="space-y-1.5">
@@ -145,7 +145,7 @@ const Categories = () => {
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                             className="input resize-none text-sm"
-                            placeholder="Briefly describe what goes in here..."
+                            placeholder="Describe the seedlings included in this category..."
                         />
                     </div>
                     <div className="pt-4 space-y-3">
