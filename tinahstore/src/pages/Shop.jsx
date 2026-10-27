@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Icon from '../components/icons/Icon.jsx';
 import SEO from '../components/common/SEO.jsx';
 import ProductCard from '../components/product/ProductCard.jsx';
 import { formatKes } from '../data/products.js';
 import { useProducts } from '../hooks/useProducts.js';
+import { useCategories } from '../hooks/useCategories.js';
 
 const PAGE_SIZE = 8;
 const PRICE_MIN = 100;
@@ -18,22 +19,27 @@ const initialFilters = {
 
 export default function Shop() {
   const { products, isLoading, error } = useProducts();
-  const [searchParams] = useSearchParams();
-  const initialSearch = searchParams.get('search') || '';
+  const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [view, setView] = useState('grid');
   const [sort, setSort] = useState('newest');
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({ ...initialFilters, query: initialSearch });
+  const [maxPrice, setMaxPrice] = useState(initialFilters.maxPrice);
+  const filters = useMemo(() => ({
+    categories: searchParams.getAll('category'),
+    query: searchParams.get('search') || '',
+    maxPrice,
+  }), [searchParams, maxPrice]);
+  useEffect(() => { setPage(1); }, [searchParams]);
 
-  const facets = useMemo(() => buildFacets(products), [products]);
+  const facets = useMemo(() => buildFacets(products, categories), [products, categories]);
   const filteredProducts = useMemo(() => {
     const query = filters.query.trim().toLowerCase();
 
     return products
       .filter((product) => {
-        const catName = typeof product.category === 'object' ? product.category?.name : product.category;
-        return filters.categories.length === 0 || filters.categories.includes(catName);
+        return filters.categories.length === 0 || filters.categories.includes(categoryKey(product, categories));
       })
       .filter((product) => product.price <= filters.maxPrice)
       .filter((product) => {
@@ -42,7 +48,7 @@ export default function Shop() {
         return [product.name, catName, product.description, product.planting_procedure].join(' ').toLowerCase().includes(query);
       })
       .sort(sortProducts(sort));
-  }, [filters, products, sort]);
+  }, [filters, products, categories, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -51,22 +57,29 @@ export default function Shop() {
   const activeFilterCount = filters.categories.length + (filters.maxPrice < PRICE_MAX ? 1 : 0) + (filters.query ? 1 : 0);
 
   function updateFilters(next) {
-    setFilters((current) => ({ ...current, ...next }));
+    if ('maxPrice' in next) setMaxPrice(next.maxPrice);
+    if ('categories' in next || 'query' in next) {
+      const params = new URLSearchParams(searchParams);
+      if ('categories' in next) {
+        params.delete('category');
+        next.categories.forEach(value => params.append('category', value));
+      }
+      if ('query' in next) {
+        if (next.query) params.set('search', next.query);
+        else params.delete('search');
+      }
+      setSearchParams(params, { replace: true });
+    }
     setPage(1);
   }
 
   function toggleFilter(key, value) {
-    setFilters((current) => {
-      const values = current[key];
-      const nextValues = values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
-      return { ...current, [key]: nextValues };
-    });
-    setPage(1);
+    const values = filters[key];
+    updateFilters({ [key]: values.includes(value) ? values.filter(item => item !== value) : [...values, value] });
   }
 
   function clearFilters() {
-    setFilters(initialFilters);
-    setPage(1);
+    updateFilters(initialFilters);
   }
 
   return (
@@ -111,6 +124,8 @@ export default function Shop() {
               selected={filters.categories}
               onToggle={(value) => toggleFilter('categories', value)}
             />
+            {categoriesLoading && <p className="muted" role="status">Loading categories...</p>}
+            {categoriesError && <p className="muted" role="status">Some categories could not be loaded. <button type="button" className="clear-filters" onClick={retryCategories}>Try again</button></p>}
 
             <div className="filter-group">
               <h4>Max Price per seedling <span>{formatKes(filters.maxPrice)}</span></h4>
@@ -138,7 +153,7 @@ export default function Shop() {
             {activeFilterCount > 0 && (
               <div className="active-filters" aria-label="Active filters">
                 {filters.query && <FilterChip label={`Search: ${filters.query}`} onRemove={() => updateFilters({ query: '' })} />}
-                {filters.categories.map((value) => <FilterChip label={value} key={value} onRemove={() => toggleFilter('categories', value)} />)}
+                {filters.categories.map(value => <FilterChip label={facets.categories.find(option => option.value === value)?.label || value} key={value} onRemove={() => toggleFilter('categories', value)} />)}
                 {filters.maxPrice < PRICE_MAX && <FilterChip label={`Under ${formatKes(filters.maxPrice)}`} onRemove={() => updateFilters({ maxPrice: PRICE_MAX })} />}
               </div>
             )}
@@ -207,10 +222,11 @@ function FilterGroup({ title, options, selected, onToggle }) {
         <label className="filter-row" key={option.value}>
           <input
             type="checkbox"
+            value={option.value}
             checked={selected.includes(option.value)}
             onChange={() => onToggle(option.value)}
           />
-          {option.value}
+          {option.label}
           <span className="count">({option.count})</span>
         </label>
       ))}
@@ -226,20 +242,23 @@ function FilterChip({ label, onRemove }) {
   );
 }
 
-function buildFacets(products) {
-  return {
-    categories: countBy(products, 'category'),
-  };
+function categoryKey(product, categories) {
+  const name = typeof product.category === 'object' ? product.category?.name : product.category;
+  // Name lookup keeps frontend-first deployments compatible with the old API.
+  return product.category_slug || product.category?.slug || categories.find(category => category.name === name)?.slug || name;
 }
 
-function countBy(products, key) {
-  return [...products.reduce((map, product) => {
-    const val = typeof product[key] === 'object' ? product[key]?.name : product[key];
-    if (!val) return map;
-    return map.set(val, (map.get(val) || 0) + 1);
-  }, new Map())]
-    .map(([value, count]) => ({ value, count }))
-    .sort((a, b) => a.value.localeCompare(b.value));
+function buildFacets(products, categories) {
+  const options = new Map(categories.map(category => [category.slug, { value: category.slug, label: category.name, count: 0 }]));
+  for (const product of products) {
+    const value = categoryKey(product, categories);
+    if (!value) continue;
+    const name = typeof product.category === 'object' ? product.category?.name : product.category;
+    const option = options.get(value) || { value, label: name, count: 0 };
+    option.count += 1;
+    options.set(value, option);
+  }
+  return { categories: [...options.values()].sort((a, b) => a.label.localeCompare(b.label)) };
 }
 
 function sortProducts(sort) {

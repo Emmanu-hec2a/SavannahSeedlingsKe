@@ -6,10 +6,11 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawn} from 'node:child_process';
+import {homeStats, homeStatsNotice} from '../../tinahstore/src/data/homeStats.js';
 
 const backend = new URL(process.argv[2]);
 const focus = process.env.ADMIN_ACTIONS_FOCUS || 'all';
-if (!['all', 'catalog-delivery', 'nursery-motion'].includes(focus)) throw Error('Unknown admin-action test focus');
+if (!['all', 'catalog-delivery', 'nursery-motion', 'catalog-sync'].includes(focus)) throw Error('Unknown admin-action test focus');
 if (process.env.RUN_ADMIN_BROWSER_TESTS !== '1' || backend.protocol !== 'http:' ||
     !['localhost', '127.0.0.1'].includes(backend.hostname) || !backend.port) {
   throw Error('Only the opted-in disposable local Django test server is allowed.');
@@ -49,21 +50,56 @@ Node.prototype.appendChild=function(child){
 const page = `<!doctype html><pre id="results">Running</pre><script>
 window.errors=[];window.requests=[];const results=[];let frame;
 const focus=${JSON.stringify(focus)};
+const expectedStats=${JSON.stringify(homeStats)};
+const expectedStatsNotice=${JSON.stringify(homeStatsNotice)};
 const processScreenshots=${process.env.NURSERY_QA_SCREENSHOTS === '1'};
 const deferred=['clear original price removes storefront sale price','remove photo does not submit form and persists on save'];
+const catalogChecks=new Set([
+ 'real staff login',
+ 'create category through admin and expose it through public API',
+ 'empty admin-created category appears in storefront filters',
+ 'admin-created category appears in homepage category cards',
+ 'create product with uploaded image and stock batch',
+ 'created product and real uploaded photo appear in storefront',
+ 'assigned category appears in shop and filters its product',
+ 'initial stock quantity appears on product page',
+ 'edit price, description, planting guide and stock in admin',
+ 'updated fields reach storefront after navigation',
+ 'zero-stock batch is shown as out of stock on storefront',
+ 'multiple stock batches total correctly on storefront',
+ 'hide product removes it from public storefront',
+ 'category rename reaches storefront filter and product detail',
+ 'product created without batches displays zero stock',
+ 'all active products remain discoverable beyond the API first page',
+ 'category links and search find products beyond the first API page',
+ 'later product page failure shows an error instead of a partial catalog',
+ 'categories beyond the first API page reach admin and storefront',
+ 'homepage limits categories and featured seedlings to four',
+ 'homepage stats appear below hero with current saved figures',
+ 'stats count once per visit without changing width or accessible values',
+ 'reduced motion displays final stats immediately',
+ 'changing motion preference finishes active stats',
+ 'missing observer leaves stats readable',
+ 'category fetch failure is readable and retry restores real categories',
+ 'category layout preserves spacing on mobile and desktop in both themes',
+ 'services sit between featured seedlings and about with approved content',
+ 'service links create safe accessible WhatsApp enquiries',
+ 'service cards preserve spacing and fit mobile and desktop in both themes',
+]);
 const originalPassword='QA-Original-Password-42!',newPassword='QA-Replaced-Password-73!';
 const doc=()=>frame.contentDocument,text=()=>doc()?.body?.innerText||'';
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const assert=(condition,message)=>{if(!condition)throw Error(message)};
 async function until(fn,label){for(let i=0;i<100;i++){try{if(fn())return}catch{}await pause(40)}throw Error('Timed out: '+label+' | '+text().slice(-200));}
 async function test(name,run){
+ if(focus==='catalog-sync'&&!catalogChecks.has(name))return;
  if(focus!=='all'&&deferred.includes(name)){
   results.push({name,skipped:true,reason:'Known product-form issue outside the catalog/delivery fix'});return;
  }
  try{await run();results.push({name,pass:true})}catch(error){results.push({name,pass:false,error:error.message})}
 }
-async function load(route,ready,width=1280){
- if(frame)frame.remove();frame=document.createElement('iframe');frame.width=width;frame.height=1000;
+async function load(route,ready,width=1280,height=1000){
+ if(frame)frame.remove();frame=document.createElement('iframe');frame.width=width;frame.height=height;
  const loaded=new Promise(resolve=>frame.addEventListener('load',resolve,{once:true}));
  frame.src=route;document.body.append(frame);await loaded;await until(ready,route+' render');
 }
@@ -110,11 +146,37 @@ async function passwordForm(old,next,confirm=next){
   await load('/login',()=>doc().getElementById('admin-username'));await login(originalPassword);
   await until(()=>text().includes('Recent Orders'),'dashboard');
  });
+ if(focus==='catalog-sync'){
+  await test('create category through admin and expose it through public API',async()=>{
+   await load('/categories',()=>field('Category Name'));
+   set(field('Category Name'),'QA Browser Citrus');
+   set(field('Description'),'Created through the real admin category form');
+   const start=requests.length;await submit(doc().querySelector('form'));
+   await until(()=>requests.slice(start).some(row=>row.method==='POST'&&row.path==='/api/v1/categories/'),'category create response');
+   assert(requests.slice(start).find(row=>row.method==='POST'&&row.path==='/api/v1/categories/').status===201,'Category creation failed');
+   await until(()=>[...doc().querySelectorAll('td')].some(el=>el.textContent==='QA Browser Citrus'),'saved category in admin table');
+   const response=await fetch('/api/v1/categories/'),data=await response.json();
+   assert(response.status===200&&(data.results||data).some(row=>row.name==='QA Browser Citrus'&&row.slug==='qa-browser-citrus'),'Created category missing from public category API');
+  });
+  await test('empty admin-created category appears in storefront filters',async()=>{
+   await load('/shop',()=>text().includes('No seedlings match those filters'));
+   await until(()=>doc().querySelectorAll('.filter-row').length===2,'empty categories fetched');
+   assert([...doc().querySelectorAll('.filter-row')].some(el=>el.textContent.includes('QA Browser Citrus')),'Empty category is absent: shop derives filters from products, not the categories API');
+  });
+  await test('admin-created category appears in homepage category cards',async()=>{
+   await load('/',()=>doc().querySelectorAll('.cat-card').length===2);
+   assert([...doc().querySelectorAll('.cat-card')].some(el=>el.textContent.includes('QA Browser Citrus')),'Homepage category cards are hardcoded; admin-created category does not appear');
+   const card=[...doc().querySelectorAll('.cat-card')].find(el=>el.textContent.includes('QA Browser Citrus'));
+   assert(card.getAttribute('href')==='/shop?category=qa-browser-citrus','Category link uses search text instead of its slug');
+   assert(card.textContent.includes('Created through the real admin category form'),'Category description was ignored');
+  });
+ }
  await test('create product with uploaded image and stock batch',async()=>{
   await load('/products/new',()=>field('Seedling Variety Name'));
   set(field('Seedling Variety Name'),'QA Browser Seedling');set(field('Description'),'QA original description');
-  await until(()=>[...field('Fruit Category').options].some(option=>option.text==='QA Fruit'),'categories');
-  set(field('Fruit Category'),[...field('Fruit Category').options].find(option=>option.text==='QA Fruit').value);
+  const categoryName=focus==='catalog-sync'?'QA Browser Citrus':'QA Fruit';
+  await until(()=>[...field('Fruit Category').options].some(option=>option.text===categoryName),'categories');
+  set(field('Fruit Category'),[...field('Fruit Category').options].find(option=>option.text===categoryName).value);
   set(field('Price per Seedling'),'350');set(field('Original Price'),'600');
   button('Add Batch').click();await pause(60);set(field('Size'),'Regular');set(field('Stock'),'17');
   await upload('#2e7d32','qa-first.png');await saveProduct();
@@ -128,6 +190,21 @@ async function passwordForm(old,next,confirm=next){
   await until(()=>image?.complete&&image.naturalWidth>0,'uploaded photo loads');
   assert(card.textContent.includes('350'),'Shop price incorrect');
  });
+ if(focus==='catalog-sync'){
+  await test('assigned category appears in shop and filters its product',async()=>{
+   await load('/shop',()=>doc().querySelector('.product-card'));
+   const filter=[...doc().querySelectorAll('.filter-row')].find(el=>el.textContent.includes('QA Browser Citrus'));
+   assert(filter,'Assigned category missing from shop filter');filter.querySelector('input').click();await pause(100);
+   const cards=[...doc().querySelectorAll('.product-card')];
+   assert(cards.length===1&&cards[0].textContent.includes('QA Browser Seedling'),'Category filter does not show assigned product');
+   assert(cards[0].querySelector('.cat').textContent==='QA Browser Citrus','Product card category incorrect');
+  });
+  await test('initial stock quantity appears on product page',async()=>{
+   await load('/product/qa-browser-seedling',()=>doc().querySelector('.stock-note'));
+   assert(doc().querySelector('.stock-note').textContent.includes('17 seedlings available'),'Initial stock is not 17');
+   const saved=await api('/products/qa-browser-seedling/');assert(saved.data.stock===17,'Detail API stock disagrees with batch');
+  });
+ }
  await test('edit price, description, planting guide and stock in admin',async()=>{
   await edit();set(field('Price per Seedling'),'425.50');set(field('Description'),'QA updated description');
   set(field('Planting & Care Procedure'),'QA updated planting instructions');set(field('Stock'),'7');await saveProduct();
@@ -146,6 +223,17 @@ async function passwordForm(old,next,confirm=next){
   assert(doc().querySelector('.stock-note').textContent.includes('Out of stock'),'Zero batch stock fell back to another value');
   await edit();set(field('Stock'),'7');await saveProduct();
  });
+ if(focus==='catalog-sync'){
+  await test('multiple stock batches total correctly on storefront',async()=>{
+   await edit();button('Add Batch').click();await pause(80);
+   const stocks=[...doc().querySelectorAll('label')].filter(el=>el.textContent.trim()==='Stock').map(el=>el.parentElement.querySelector('input'));
+   assert(stocks.length===2,'Second stock batch not added');set(stocks[0],'7');set(stocks[1],'5');await saveProduct();
+   const listing=await api('/products/'),detail=await api('/products/qa-browser-seedling/');
+   assert(listing.data.results.find(row=>row.slug==='qa-browser-seedling').stock===12&&detail.data.stock===12,'API stock total is not 7 + 5 = 12');
+   await load('/product/qa-browser-seedling',()=>doc().querySelector('.stock-note'));
+   assert(doc().querySelector('.stock-note').textContent.includes('12 seedlings available'),'Storefront does not show summed batch stock');
+  });
+ }
  await test('add a second photo and show it in storefront gallery',async()=>{
   await edit();await upload('#e67e22','qa-second.png');await saveProduct();
   await load('/product/qa-browser-seedling',()=>doc().querySelector('.pd-desc'));
@@ -175,6 +263,268 @@ async function passwordForm(old,next,confirm=next){
   await load('/shop',()=>doc().querySelector('.product-card'));
   assert(text().includes('QA Browser Seedling'),'Reactivated product did not return to shop');
  });
+ if(focus==='catalog-sync'){
+  await test('category rename reaches storefront filter and product detail',async()=>{
+   await load('/categories',()=>[...doc().querySelectorAll('td')].some(el=>el.textContent==='QA Browser Citrus'));
+   const row=[...doc().querySelectorAll('tr')].find(el=>el.querySelector('td')?.textContent==='QA Browser Citrus');
+   row.querySelector('button').click();await pause(80);set(field('Category Name'),'QA Renamed Citrus');
+   const start=requests.length;await submit(doc().querySelector('form'));
+   await until(()=>requests.slice(start).some(row=>row.method==='PATCH'&&row.path==='/api/v1/categories/qa-browser-citrus/'),'category rename response');
+   assert(requests.slice(start).find(row=>row.method==='PATCH'&&row.path==='/api/v1/categories/qa-browser-citrus/').status===200,'Category rename failed');
+   await load('/shop',()=>doc().querySelector('.product-card'));
+   assert([...doc().querySelectorAll('.filter-row')].some(el=>el.textContent.includes('QA Renamed Citrus')),'Renamed category missing from filter');
+   assert(doc().querySelector('.product-card .cat').textContent==='QA Renamed Citrus','Product card retains old category name');
+   await load('/product/qa-browser-seedling',()=>doc().querySelector('.stock-note'));
+   assert(doc().querySelector('.pd-info .eyebrow').textContent.includes('QA Renamed Citrus'),'Product detail retains old category name');
+   await load('/',()=>[...doc().querySelectorAll('.cat-card')].some(el=>el.textContent.includes('QA Renamed Citrus')));
+   const card=[...doc().querySelectorAll('.cat-card')].find(el=>el.textContent.includes('QA Renamed Citrus'));
+   assert(card.getAttribute('href')==='/shop?category=qa-renamed-citrus','Homepage link retained the old category slug');
+  });
+  await test('product created without batches displays zero stock',async()=>{
+   await load('/products/new',()=>field('Seedling Variety Name'));
+   set(field('Seedling Variety Name'),'QA No Batch Seedling');set(field('Description'),'No stock batch has been added');
+   await until(()=>[...field('Fruit Category').options].some(option=>option.text==='QA Fruit'),'categories');
+   set(field('Fruit Category'),[...field('Fruit Category').options].find(option=>option.text==='QA Fruit').value);
+   set(field('Price per Seedling'),'250');await saveProduct();
+   const saved=await api('/products/qa-no-batch-seedling/');
+   assert(saved.data.stock===0&&saved.data.variants.length===0,'Unbatched product has unexpected stock');
+   await load('/product/qa-no-batch-seedling',()=>doc().querySelector('.stock-note'));
+   assert(doc().querySelector('.stock-note').textContent.includes('Out of stock'),'Unbatched zero stock not displayed correctly');
+  });
+  await test('all active products remain discoverable beyond the API first page',async()=>{
+   const categories=await api('/categories/'),category=(categories.data.results||categories.data).find(row=>row.name==='QA Fruit');
+   for(let index=0;index<12;index++){
+    const response=await api('/products/','POST',{name:'QA Pagination Seedling '+index,slug:'qa-pagination-'+index,description:'Isolated pagination verification',category_id:category.id,price:'300.00'});
+    assert(response.status===201,'Pagination fixture creation failed');
+   }
+   const response=await fetch('/api/v1/products/'),data=await response.json();
+   assert(data.count===14&&data.next&&data.results.length===12,'Expected API boundary of 12 out of 14 products');
+   await load('/shop',()=>doc().querySelector('.product-card'));
+   const pages=[...doc().querySelectorAll('.pagination button')].filter(el=>/^\\d+$/.test(el.textContent.trim()));
+   const found=new Set();
+   for(const page of pages){page.click();await pause(100);for(const card of doc().querySelectorAll('.product-card'))found.add(card.getAttribute('href'));}
+   assert(found.has('/product/qa-browser-seedling')&&found.has('/product/qa-no-batch-seedling'),'Only first 12 API products are loaded; older active products and their category filter disappear from the shop');
+   assert(found.size===14,'Shop pagination lost or duplicated products');
+  });
+  await test('category links and search find products beyond the first API page',async()=>{
+   await load('/',()=>doc().querySelectorAll('.cat-card').length===2);
+   const card=[...doc().querySelectorAll('.cat-card')].find(el=>el.textContent.includes('QA Renamed Citrus'));
+   card.click();await until(()=>frame.contentWindow.location.pathname==='/shop'&&doc().querySelectorAll('.product-card').length===1,'category navigation');
+   assert(doc().querySelector('.product-card').textContent.includes('QA Browser Seedling'),'Category navigation missed the older product');
+   assert(doc().querySelector('.filter-row input:checked')?.value==='qa-renamed-citrus','URL category is not selected');
+   button('Clear all filters').click();await until(()=>doc().querySelectorAll('.product-card').length===8,'clear category');
+   assert(!frame.contentWindow.location.search.includes('category'),'Clear filters retained category URL');
+   set(doc().querySelector('input[type=search]'),'QA Browser Seedling');
+   await until(()=>doc().querySelectorAll('.product-card').length===1,'search across all pages');
+   assert(doc().querySelector('.product-card').textContent.includes('QA Browser Seedling'),'Search missed older product');
+  });
+  await test('later product page failure shows an error instead of a partial catalog',async()=>{
+   await fetch('/__catalog?fail=1');
+   try{
+    await load('/shop',()=>text().includes('We could not load the seedling catalog.'));
+    assert(doc().querySelectorAll('.product-card').length===0,'First page displayed as a complete catalog after page two failed');
+   }finally{await fetch('/__catalog?fail=0');}
+   await load('/shop',()=>doc().querySelectorAll('.product-card').length===8);
+   assert(text().includes('14 seedling varieties'),'Catalog did not recover after reload');
+  });
+  await test('categories beyond the first API page reach admin and storefront',async()=>{
+   for(let index=0;index<12;index++){
+    const response=await api('/categories/','POST',{name:'AA QA Category '+index,slug:'aa-qa-category-'+index,description:'Empty admin-managed category'});
+    assert(response.status===201,'Category pagination fixture failed');
+   }
+   await load('/categories',()=>doc().querySelectorAll('tbody tr').length===14);
+   assert([...doc().querySelectorAll('td')].some(el=>el.textContent==='QA Renamed Citrus'),'Admin category list lost later categories');
+   await load('/products/new',()=>field('Seedling Variety Name'));
+   await until(()=>field('Fruit Category').options.length===15,'all categories in product form');
+   assert([...field('Fruit Category').options].some(el=>el.text==='QA Renamed Citrus'),'Cannot assign a category beyond page one');
+   await load('/shop',()=>doc().querySelectorAll('.filter-row').length===14&&doc().querySelector('.product-card'));
+   assert([...doc().querySelectorAll('.filter-row')].some(el=>el.textContent.includes('QA Renamed Citrus')),'Shop category pagination truncated');
+   const empty=[...doc().querySelectorAll('.filter-row')].find(el=>el.textContent.includes('AA QA Category 0'));
+   assert(empty.textContent.includes('(0)'),'Empty category count is not zero');
+   empty.querySelector('input').click();await until(()=>text().includes('No seedlings match those filters'),'empty category selected');
+   assert(doc().querySelectorAll('.product-card').length===0,'Empty category shows unrelated products');
+  });
+  await test('homepage limits categories and featured seedlings to four',async()=>{
+   const response=await fetch('/api/v1/categories/'),data=await response.json();
+   assert(data.count===14,'Expected more than four saved categories');
+   await load('/',()=>doc().querySelectorAll('.cat-card').length===4&&doc().querySelectorAll('.product-grid .product-card').length===4);
+   const categoryNames=[...doc().querySelectorAll('.cat-card h3')].map(el=>el.textContent);
+   assert(JSON.stringify(categoryNames)===JSON.stringify(data.results.slice(0,4).map(row=>row.name)),'Homepage does not show the first four categories in saved catalog order');
+   const productsResponse=await fetch('/api/v1/products/?ordering=-created_at'),products=await productsResponse.json();
+   assert(products.count===14,'Expected more than four saved products');
+   const featured=[...doc().querySelectorAll('.product-grid .product-card')].map(el=>el.getAttribute('href'));
+   assert(JSON.stringify(featured)===JSON.stringify(products.results.slice(0,4).map(row=>'/product/'+row.slug)),'Featured seedlings do not match the first four newest products');
+  });
+  await test('homepage stats appear below hero with current saved figures',async()=>{
+   await load('/',()=>doc().querySelectorAll('.home-stat').length===4);
+   const stats=doc().querySelector('.home-stats');
+   assert(doc().querySelector('.hero').nextElementSibling.contains(stats),'Stats are not immediately below the hero');
+   assert(stats.closest('.trust-strip'),'Stats are not grouped with existing trust content');
+   assert(stats.getAttribute('aria-describedby')==='home-stats-notice','Stats supporting text is not accessible');
+   const notice=doc().getElementById('home-stats-notice');
+   assert(notice.textContent===expectedStatsNotice&&notice.getBoundingClientRect().height>0,'Saved stats supporting text was changed or hidden');
+   const values=[...stats.querySelectorAll('dd .sr-only')].map(el=>el.textContent);
+   const labels=[...stats.querySelectorAll('dt')].map(el=>el.textContent);
+   assert(JSON.stringify(values)===JSON.stringify(expectedStats.map(stat=>stat.value)),'Saved stats figures were changed');
+   assert(JSON.stringify(labels)===JSON.stringify(expectedStats.map(stat=>stat.label)),'Expected stat labels missing');
+   assert([...stats.querySelectorAll('.home-stat')].every(el=>el.dataset.reveal==='fade'),'Stats do not use existing section fades');
+   assert(doc().querySelectorAll('.trust-item').length===4,'Stats removed existing delivery/WhatsApp assurances');
+  });
+  await test('stats count once per visit without changing width or accessible values',async()=>{
+   await load('/',()=>doc().querySelectorAll('.home-stat-count').length===4,1280,400);
+   const counts=[...doc().querySelectorAll('.home-stat-count')];
+   assert(window.innerWidth>=frame.getBoundingClientRect().right,'QA browser viewport clips the desktop iframe');
+   assert(counts.every(el=>/^0\\+?$/.test(el.textContent)),'Offscreen stats did not wait at zero');
+   const widths=counts.map(el=>el.parentElement.getBoundingClientRect().width);
+   counts[0].scrollIntoView({behavior:'instant',block:'center'});
+   await until(()=>Number(counts[0].textContent.replace(/[^0-9]/g,''))>0&&counts[0].textContent!==expectedStats[0].value,'count-up intermediate number');
+   for(let index=0;index<counts.length;index++){
+    assert(counts[index].parentElement.getAttribute('aria-hidden')==='true','Intermediate values are announced to screen readers');
+    assert(counts[index].closest('dd').querySelector('.sr-only').textContent===expectedStats[index].value,'Accessible final value changes during animation');
+   }
+   await until(()=>counts.every((el,index)=>el.textContent===expectedStats[index].value),'stats reach final values');
+   assert(counts.every((el,index)=>Math.abs(el.parentElement.getBoundingClientRect().width-widths[index])<1),'Counter width shifted while counting');
+   doc().querySelector('.hero').scrollIntoView({behavior:'instant'});await pause(100);
+   counts[0].scrollIntoView({behavior:'instant',block:'center'});await pause(100);
+   assert(counts.every((el,index)=>el.textContent===expectedStats[index].value),'Stats replayed on scroll back');
+   await load('/',()=>doc().querySelectorAll('.home-stat-count').length===4,1280,400);
+   assert([...doc().querySelectorAll('.home-stat-count')].every(el=>/^0\\+?$/.test(el.textContent)),'New page visit did not reset the counters');
+  });
+  await test('reduced motion displays final stats immediately',async()=>{
+   await fetch('/__motion?reduce=1');
+   try{
+    await load('/',()=>doc().querySelectorAll('.home-stat-count').length===4,1280,400);
+    assert(frame.contentWindow.matchMedia('(prefers-reduced-motion: reduce)').matches,'Reduced-motion preference not applied');
+    assert([...doc().querySelectorAll('.home-stat-count')].every((el,index)=>el.textContent===expectedStats[index].value),'Reduced motion left a counter at zero');
+   }finally{await fetch('/__motion?reduce=0');}
+  });
+  await test('changing motion preference finishes active stats',async()=>{
+   await load('/',()=>doc().querySelectorAll('.home-stat-count').length===4,1280,400);
+   const counts=[...doc().querySelectorAll('.home-stat-count')];counts[0].scrollIntoView({behavior:'instant',block:'center'});
+   await until(()=>Number(counts[0].textContent.replace(/[^0-9]/g,''))>0&&counts[0].textContent!==expectedStats[0].value,'active counter');
+   try{
+    await fetch('/__motion?reduce=1');
+    await until(()=>counts.every((el,index)=>el.textContent===expectedStats[index].value),'preference change completes stats');
+   }finally{await fetch('/__motion?reduce=0');}
+  });
+  await test('missing observer leaves stats readable',async()=>{
+   window.disableObserver=true;
+   try{
+    await load('/',()=>doc().querySelectorAll('.home-stat-count').length===4,1280,400);
+    assert([...doc().querySelectorAll('.home-stat-count')].every((el,index)=>el.textContent===expectedStats[index].value),'Missing observer leaves stats at zero');
+   }finally{window.disableObserver=false;}
+  });
+  await test('category fetch failure is readable and retry restores real categories',async()=>{
+   await fetch('/__categories?fail=1');
+   try{
+    await load('/',()=>text().includes('We could not load categories.'));
+    assert(doc().querySelectorAll('.cat-card').length===0,'Outage replaced real categories with hardcoded ones');
+   }finally{await fetch('/__categories?fail=0');}
+   button('Try again').click();await until(()=>doc().querySelectorAll('.cat-card').length===4,'category retry');
+   assert(!text().includes('We could not load categories.'),'Category retry retained error state');
+  });
+  await test('category layout preserves spacing on mobile and desktop in both themes',async()=>{
+   for(const theme of ['dark','light']){
+    localStorage.setItem('tinahstore-theme',theme);
+    for(const width of [320,390,768,1280]){
+     await load('/',()=>doc().querySelectorAll('.cat-card').length===4&&doc().querySelectorAll('.product-grid .product-card').length===4,width);
+     const win=frame.contentWindow,grid=doc().querySelector('.cat-grid');
+     assert(doc().documentElement.dataset.theme===theme,'Requested theme not applied');
+     assert(doc().documentElement.scrollWidth<=width,'Homepage overflows at '+width+' in '+theme);
+     const columns=win.getComputedStyle(grid).gridTemplateColumns.split(' ').length;
+     assert(columns===(width<=480?1:width<=900?2:4),'Category columns changed at '+width);
+     assert(win.getComputedStyle(grid).gap===(width<=900?'16px':'22px'),'Category gap changed');
+     const statsGrid=doc().querySelector('.home-stats-grid');
+     assert(win.getComputedStyle(statsGrid).gridTemplateColumns.split(' ').length===(width<=900?2:4),'Stats grid columns incorrect at '+width);
+     for(const node of statsGrid.querySelectorAll('.home-stat')){
+      assert(node.scrollWidth<=node.clientWidth,'Stats text overflows at '+width);
+      assert(win.getComputedStyle(node.querySelector('dd')).color!==win.getComputedStyle(doc().querySelector('.trust-strip')).backgroundColor,'Stats numbers lack theme contrast');
+     }
+     const hero=doc().querySelector('.hero');
+     const gap=doc().querySelector('.trust-strip').getBoundingClientRect().top-doc().querySelector('.hero-actions').getBoundingClientRect().bottom;
+     assert(gap>=(width<=900?31:47),'Hero CTA spacing tightened');
+     if(processScreenshots&&[390,1280].includes(width)){
+      const stats=doc().querySelector('.home-stats');
+      win.scrollTo({top:stats.getBoundingClientRect().top+win.scrollY-160,behavior:'instant'});await pause(800);
+      await fetch('/__screenshot?name=stats-'+theme+'-'+width+'&width='+width+'&height=1000');
+      win.scrollTo({top:grid.getBoundingClientRect().top+win.scrollY-160,behavior:'instant'});await pause(700);
+      await fetch('/__screenshot?name=catalog-'+theme+'-'+width+'&width='+width+'&height=1000');
+     }
+     await load('/shop?category=qa-renamed-citrus',()=>doc().querySelectorAll('.filter-row').length===14&&doc().querySelectorAll('.product-card').length===1,width);
+     assert(doc().documentElement.scrollWidth<=width,'Shop overflows at '+width+' in '+theme);
+    }
+   }
+  });
+  await test('services sit between featured seedlings and about with approved content',async()=>{
+   await load('/',()=>doc().querySelectorAll('.service-card').length===3);
+   const section=doc().getElementById('services');
+   assert(section.previousElementSibling.querySelector('.product-grid'),'Services are not after featured seedlings');
+   assert(section.nextElementSibling.id==='about','Services are not before About Us');
+   assert(section.getAttribute('aria-labelledby')==='home-services-title','Services section is not labeled');
+   assert(doc().getElementById('home-services-title').textContent==='Expert support for your farm','Service heading changed');
+   assert(JSON.stringify([...section.querySelectorAll('h3')].map(el=>el.textContent))===JSON.stringify(['Agronomy support','Soil testing','Irrigation services']),'Service titles are missing or duplicated');
+   const irrigation=section.querySelector('#service-irrigation-services').closest('article');
+   for(const scope of ['Planning','installation','maintenance'])assert(irrigation.textContent.includes(scope),'Irrigation scope missing: '+scope);
+   assert(section.querySelector('.services-note').textContent.includes('Provided directly by Savannah Seedlings'),'Direct provider clarification missing');
+   assert(section.querySelectorAll('.service-icon svg').length===3,'A service icon did not render');
+   assert(!section.querySelector('.services-grid').hasAttribute('data-reveal'),'Entire tall services grid reveals too early');
+   assert([...section.querySelectorAll('.service-card')].every(el=>el.dataset.reveal==='fade'),'Individual service fade missing');
+  });
+  await test('service links create safe accessible WhatsApp enquiries',async()=>{
+   await load('/',()=>doc().querySelectorAll('.service-enquiry').length===3);
+   const links=[...doc().querySelectorAll('.service-enquiry')];
+   const drafts=new Set();
+   for(const link of links){
+    const title=link.closest('article').querySelector('h3').textContent.toLowerCase(),url=new URL(link.href);
+    assert(url.protocol==='https:'&&url.hostname==='wa.me'&&url.pathname==='/254710583989','Service enquiry points to the wrong recipient');
+    const message=url.searchParams.get('text');
+    assert(message.includes(title)&&message.includes('availability and pricing'),'Message does not identify requested service');
+    drafts.add(message);
+    assert(link.target==='_blank'&&link.relList.contains('noopener')&&link.relList.contains('noreferrer'),'External-link protections missing');
+    assert(link.getAttribute('aria-label').includes(title),'Repeated enquiry link lacks accessible service context');
+    assert(link.getAttribute('aria-label').startsWith(link.textContent.trim()),'Accessible name does not include the visible enquiry label');
+    assert(!link.hasAttribute('onclick'),'Service link auto-sends or intercepts messages');
+   }
+   assert(drafts.size===3,'Different services share the same draft');
+   links[0].scrollIntoView({behavior:'instant',block:'center'});links[0].focus();
+   await fetch('/__keyboard-tab');await until(()=>doc().activeElement===links[1],'Tab reaches the next service enquiry');
+   const style=frame.contentWindow.getComputedStyle(links[1]);
+   assert(style.outlineStyle!=='none'&&parseFloat(style.outlineWidth)>0,'Keyboard focus indicator missing');
+   assert(frame.contentWindow.getComputedStyle(links[1].closest('article')).opacity==='1','Keyboard focus left service content faded');
+   // Inspect drafts only; never navigate to WhatsApp or send a message in QA.
+  });
+  await test('service cards preserve spacing and fit mobile and desktop in both themes',async()=>{
+   for(const theme of ['dark','light']){
+    localStorage.setItem('tinahstore-theme',theme);
+    for(const width of [320,390,768,900,901,1024,1280]){
+     await load('/',()=>doc().querySelectorAll('.service-card').length===3&&doc().querySelectorAll('.cat-card').length===4&&doc().querySelectorAll('.product-grid .product-card').length===4,width);
+     const win=frame.contentWindow,section=doc().getElementById('services'),grid=section.querySelector('.services-grid');
+     assert(doc().documentElement.dataset.theme===theme,'Service theme not applied');
+     assert(doc().documentElement.scrollWidth<=width,'Services create page overflow at '+width+' in '+theme);
+     assert(win.getComputedStyle(grid).gridTemplateColumns.split(' ').length===(width<=900?1:3),'Unexpected service columns at '+width);
+     const padding=width<=640?48:width<=900?64:88,style=win.getComputedStyle(section);
+     assert(parseFloat(style.paddingTop)===padding&&parseFloat(style.paddingBottom)===padding,'Services section spacing tightened');
+     assert(win.getComputedStyle(grid).gap==='24px','Service card spacing changed');
+     for(const card of grid.children){
+      const link=card.querySelector('.service-enquiry'),cardBounds=card.getBoundingClientRect(),buttonBounds=link.getBoundingClientRect();
+      const heading=card.querySelector('.service-card-heading'),icon=heading.querySelector('.service-icon').getBoundingClientRect(),title=heading.querySelector('h3').getBoundingClientRect();
+      assert(title.left>=icon.right+13,'Service title is not to the right of its icon at '+width);
+      assert(title.top<icon.bottom&&title.bottom>icon.top,'Service title is not vertically aligned with its icon');
+      assert(icon.width===48&&icon.height===48,'Service icon shrinks at '+width);
+      assert(heading.scrollWidth<=heading.clientWidth,'Service heading overflows at '+width);
+      assert(card.querySelector('p').getBoundingClientRect().top>=Math.max(icon.bottom,title.bottom)+19,'Service description crowds its heading');
+      assert(card.scrollWidth<=card.clientWidth,'Service card content overflows at '+width);
+      assert(buttonBounds.height>=44,'Service enquiry touch target too short');
+      assert(buttonBounds.left>=cardBounds.left&&buttonBounds.right<=cardBounds.right,'Service enquiry overflows its card');
+     }
+     if(processScreenshots&&[390,1280].includes(width)){
+      win.scrollTo({top:section.getBoundingClientRect().top+win.scrollY-140,behavior:'instant'});await pause(800);
+      await fetch('/__screenshot?name=services-'+theme+'-'+width+'&width='+width+'&height=1000');
+     }
+    }
+   }
+  });
+ }
  await test('save Settings delivery rates and persist on reload',async()=>{
   await settings();set(field('Nairobi Region Delivery Fee'),'80.50');set(field('Upcountry / Rest'),'375');
   const start=requests.length;await submit(field('Nairobi Region Delivery Fee').closest('form'));
@@ -331,8 +681,8 @@ async function passwordForm(old,next,confirm=next){
    assert(!target.getAnimations().length,'Reveal replayed on return');
   });
   await test('homepage uses individual scroll fades from hero highlights to newsletter',async()=>{
-   await load('/',()=>doc().querySelector('.product-card[data-reveal="fade"]'),390);
-   for(const selector of ['.trust-item','.cat-card','.product-card','.testi-card','.contact-card','.newsletter .container']){
+   await load('/',()=>doc().querySelector('.product-card[data-reveal="fade"]')&&doc().querySelector('.cat-card[data-reveal="fade"]'),390);
+   for(const selector of ['.home-stat','.trust-item','.cat-card','.product-card','.service-card','.testi-card','.contact-card','.newsletter .container']){
     const nodes=doc().querySelectorAll(selector);assert(nodes.length,'Missing fade group: '+selector);
     nodes.forEach(node=>assert(node.dataset.reveal==='fade','Missing per-block fade: '+selector));
    }
@@ -421,10 +771,15 @@ async function passwordForm(old,next,confirm=next){
 </script>`;
 
 const upstreams=new Set();
-let sendCommand, nurseryFailure=false;
+let sendCommand, nurseryFailure=false, catalogFailure=false, categoriesFailure=false;
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
+    if(url.pathname==='/__keyboard-tab'){
+      await sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
+      await sendCommand('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
+      res.end('OK');return;
+    }
     if(url.pathname==='/__motion'){
       await sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:url.searchParams.get('reduce')==='1'?'reduce':'no-preference'}]});
       res.end('OK');return;
@@ -433,11 +788,17 @@ const server = createServer(async (req, res) => {
       const shot=await sendCommand('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,
         clip:{x:8,y:0,width:Number(url.searchParams.get('width')),height:Number(url.searchParams.get('height')),scale:1}});
       const name=url.searchParams.get('name');
-      if(!/^gallery-(light|dark)$/.test(name))throw Error('Unknown screenshot');
+      if(!/^(gallery-(light|dark)|(catalog|stats|services)-(light|dark)-(390|1280))$/.test(name))throw Error('Unknown screenshot');
       const filename=path.join(profile,name+'.png');await writeFile(filename,Buffer.from(shot.data,'base64'));
       console.log('QA screenshot: '+filename);res.end('OK');return;
     }
     if(url.pathname==='/__gallery'){nurseryFailure=url.searchParams.get('fail')==='1';res.end('OK');return;}
+    if(url.pathname==='/__catalog'){catalogFailure=url.searchParams.get('fail')==='1';res.end('OK');return;}
+    if(url.pathname==='/__categories'){categoriesFailure=url.searchParams.get('fail')==='1';res.end('OK');return;}
+    if((catalogFailure&&url.pathname==='/api/v1/products/'&&url.searchParams.get('page')==='2') ||
+       (categoriesFailure&&url.pathname==='/api/v1/categories/')){
+      res.writeHead(503,{'Content-Type':'application/json'}).end('{"detail":"Simulated catalog outage"}');return;
+    }
     if(nurseryFailure&&url.pathname==='/api/v1/nursery-photos/'){res.writeHead(503,{'Content-Type':'application/json'}).end('{"detail":"Simulated outage"}');return;}
     if (url.pathname === '/__checks') {
       res.setHeader('Content-Type', 'text/html');res.end(page);return;
@@ -460,7 +821,7 @@ const server = createServer(async (req, res) => {
       upstreams.add(upstream);upstream.once('close',()=>upstreams.delete(upstream));
       upstream.on('error',error=>res.writeHead(502).end(error.message));req.pipe(upstream);return;
     }
-    const isAdmin = /^\/(login|dashboard|products|settings|nursery-photos)(\/|$)/.test(url.pathname);
+    const isAdmin = /^\/(login|dashboard|products|categories|settings|nursery-photos)(\/|$)/.test(url.pathname);
     const asset = /\.(js|css|png|ico|svg|webp|json)$/.test(url.pathname);
     let content, file;
     if (asset) {
@@ -507,6 +868,9 @@ try {
     socket.send(JSON.stringify({id,method,params}));
   });
   sendCommand=send;
+  // IntersectionObserver also clips to the outer page. Fit desktop iframes in
+  // the headless window so right-hand counters can genuinely enter the viewport.
+  await send('Emulation.setDeviceMetricsOverride',{width:1400,height:1100,deviceScaleFactor:1,mobile:false});
   await send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/__checks'});
   let report;
   for(let i=0;i<800;i++) {

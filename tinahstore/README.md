@@ -61,3 +61,45 @@ existing demo records/edits. Demo data and files live under ignored
 `backend/.local-demo/`. Existing `.env` files and production settings are not
 changed. Stop the two demo servers and use your normal commands to return to your
 usual development database/storage. Do not deploy using `demo_settings`.
+
+## Homepage stats preview
+
+`src/data/homeStats.js` holds the manually maintained figures and supporting
+text. The current configuration is 10,000+ seedlings supplied, 500+ growers
+served, 5+ years of experience, and 10+ countries served. The current supporting
+copy is the brand tagline. The count-up change preserves these existing edits.
+Figures are not derived from business records, inventory, orders, or delivery
+destinations; tests verify rendering, not whether the totals are factually true.
+Confirm business totals with the seller before presenting them as verified facts.
+
+`HomeStats` sits in the existing trust strip immediately below the hero. It uses
+four columns on desktop, two on mobile/tablet, theme colors, and the existing
+once-only scroll fades. Each visible number counts up from zero over 1.4 seconds
+on first viewport entry, then stays fixed until a new page visit/reload. Its final
+width is reserved to prevent movement, and screen readers receive only the final
+value. Reduced-motion preferences and missing animation APIs display the final
+number immediately. Frame requests and observers are cleaned up on unmount.
+It makes no API calls or database changes. Homepage category/product limits
+remain four each. Run `npm run test:stats` for the count-up lifecycle checks.
+
+## Homepage services
+
+`HomeServices` renders after Featured Fruit Seedlings and before About Us, with
+three services provided directly by Savannah: agronomy support, soil testing,
+and irrigation planning, installation, and maintenance. Content lives in
+`src/data/homeServices.js`; the section is addressable at `/#services`.
+
+Each card links to Savannah's existing WhatsApp number with a safely encoded,
+service-specific enquiry about pricing and availability. Visitors review and
+send the draft themselves. There are no automatic messages, service payments,
+new API requests, or database changes.
+
+The cards use the existing icon system, theme tokens, section padding, and
+per-card fades. Three desktop columns become one column at 900px and below.
+Links have service-specific accessible labels, visible keyboard focus, and
+touch targets at least 44px high. Reduced-motion and unsupported-observer
+fallbacks use the existing section-reveal behavior.
+
+Run `npm run test:services` for the content/link checks. The isolated
+`catalog-sync` browser suite also checks placement, accessibility, spacing, and
+both themes from 320px through 1280px; it never opens or sends WhatsApp messages.

@@ -5,16 +5,12 @@ import SEO from '../components/common/SEO.jsx';
 import ProductCard from '../components/product/ProductCard.jsx';
 import SeedlingIllustration from '../assets/illustrations/SeedlingIllustration.jsx';
 import { useProducts } from '../hooks/useProducts.js';
+import { useCategories } from '../hooks/useCategories.js';
 import { useSectionReveals } from '../hooks/useSectionReveals.js';
 import NurseryGallery from '../components/common/NurseryGallery.jsx';
 import HeroBackground from '../components/common/HeroBackground.jsx';
-
-const categories = [
-  ['Avocado Seedlings', 'Grafted Hass, Fuerte & Jumbo', SeedlingIllustration],
-  ['Citrus & Oranges', 'Grafted Pixie & Washington Navel', SeedlingIllustration],
-  ['Mango Seedlings', 'Grafted Kent, Tommy Atkins & Apple', SeedlingIllustration],
-  ['Passion & Exotic', 'Grafted Yellow Passion, Dragon Fruit & Pomegranate', SeedlingIllustration],
-];
+import HomeStats from '../components/common/HomeStats.jsx';
+import HomeServices from '../components/common/HomeServices.jsx';
 
 const contactLinks = [
   { label: 'WhatsApp', value: '+254 710 583 989', href: 'https://wa.me/254710583989', icon: 'whatsapp' },
@@ -24,7 +20,8 @@ const contactLinks = [
 ];
 
 export default function Home() {
-  const { products, isLoading } = useProducts({ ordering: '-created_at' });
+  const { products, isLoading } = useProducts({ ordering: '-created_at' }, { limit: 4 });
+  const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
   const { hash } = useLocation();
   const homeRef = useRef(null);
   const heroRef = useRef(null);
@@ -86,6 +83,7 @@ export default function Home() {
       </section>
 
       <div className="trust-strip">
+        <div className="container"><HomeStats /></div>
         <div className="container trust-grid">
           {[
             ['truck', 'Delivery Across Africa', 'Quoted on WhatsApp'],
@@ -101,12 +99,15 @@ export default function Home() {
       <section>
         <div className="container">
           <div className="section-head" data-reveal="fade"><div><p className="eyebrow">Browse Catalog</p><h2 className="h2">Fruit Seedling Categories</h2></div></div>
+          {categoriesLoading && <p className="muted" role="status">Loading seedling categories...</p>}
+          {categoriesError && <p role="status">We could not load categories. <button type="button" className="clear-filters" onClick={retryCategories}>Try again</button></p>}
+          {!categoriesLoading && !categoriesError && categories.length === 0 && <p className="muted">Categories are being prepared. <Link to="/shop">Browse all seedlings</Link></p>}
           <div className="cat-grid">
-            {categories.map(([name, copy, Art]) => (
-              <Link to={`/shop?search=${encodeURIComponent(name.split(' ')[0])}`} className="cat-card" key={name} data-reveal="fade">
-                <div className="art"><Art color="#2E7D32" /></div>
-                <h3>{name}</h3>
-                <span className="muted" style={{ fontSize: 13 }}>{copy}</span>
+            {categories.slice(0, 4).map(category => (
+              <Link to={`/shop?category=${encodeURIComponent(category.slug)}`} className="cat-card" key={category.id} data-reveal="fade">
+                <div className="art"><SeedlingIllustration color="#2E7D32" /></div>
+                <h3>{category.name}</h3>
+                <span className="muted" style={{ fontSize: 13 }}>{category.description || 'Explore seedlings in this category'}</span>
               </Link>
             ))}
           </div>
@@ -128,6 +129,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <HomeServices />
 
       <section id="about">
         <div className="container">

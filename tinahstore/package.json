@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "test:auth": "node scripts/check-auth.mjs",
     "test:motion": "node scripts/check-scroll-reveals.mjs",
+    "test:stats": "node scripts/check-count-up.mjs",
+    "test:services": "node scripts/check-services.mjs",
+    "test:catalog": "node scripts/check-catalog.mjs",
     "test:hero": "node --experimental-websocket scripts/check-hero.mjs"
   },
   "dependencies": {

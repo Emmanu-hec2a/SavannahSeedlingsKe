@@ -37,6 +37,15 @@ class CatalogAvailabilityTests(TestCase):
     def test_no_batches_use_product_stock_in_both_responses(self):
         self.assert_stock(99)
 
+    def test_category_slug_distinguishes_categories_with_identical_names(self):
+        other = Category.objects.create(name=self.category.name, slug='another-fruit-category')
+        other_product = Product.objects.create(name='QA other-category seedling', category=other,
+            price='350.00', stock=3, description='Separate category with the same label')
+        rows = self.catalog()
+        self.assertEqual(next(row for row in rows if row['id'] == self.product.pk)['category_slug'], self.category.slug)
+        self.assertEqual(next(row for row in rows if row['id'] == other_product.pk)['category_slug'], other.slug)
+        self.assertEqual([row['id'] for row in self.catalog(category=other.slug)], [other_product.pk])
+
     def test_batch_total_overrides_product_stock_in_both_responses(self):
         ProductVariant.objects.create(product=self.product, color_name='Batch A', stock=4)
         ProductVariant.objects.create(product=self.product, color_name='Batch B', stock=8)

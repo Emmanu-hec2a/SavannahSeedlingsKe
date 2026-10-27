@@ -17,6 +17,8 @@ export const iconPaths = {
   shield: '<path d="M12 3.2 19.5 6v6c0 5-3.4 8-7.5 9-4.1-1-7.5-4-7.5-9V6z"></path>',
   refresh: '<path d="M19.8 11A7.8 7.8 0 1 0 17.6 17"></path><polyline points="19.8,5.2 19.8,11 14,11"></polyline>',
   leaf: '<path d="M5.5 18.5C4 12 7 5.5 18.5 5.5 18.5 14 14 18.5 5.5 18.5z"></path><path d="M5.5 18.5 14 10"></path>',
+  flask: '<path d="M9 3h6M10 3v7l-5.5 8.5A2.2 2.2 0 0 0 6.4 22h11.2a2.2 2.2 0 0 0 1.9-3.5L14 10V3"></path><path d="M7.5 14h9"></path><circle cx="10" cy="18" r=".6" fill="currentColor" stroke="none"></circle><circle cx="14" cy="17" r=".6" fill="currentColor" stroke="none"></circle>',
+  droplet: '<path d="M12 3S5 10.5 5 15a7 7 0 0 0 14 0c0-4.5-7-12-7-12z"></path><path d="M8.5 15.5a3.5 3.5 0 0 0 3.5 3"></path>',
   creditCard: '<rect x="2.5" y="6" width="19" height="13" rx="1.6"></rect><line x1="2.5" y1="10.5" x2="21.5" y2="10.5"></line>',
   phone: '<path d="M5 4h3.3l1.7 4.4-2.2 1.8a11.5 11.5 0 0 0 5.9 5.9l1.8-2.2 4.4 1.7V19a1.6 1.6 0 0 1-1.6 1.6C10 20.6 3.4 14 3.4 5.6A1.6 1.6 0 0 1 5 4z"></path>',
   lock: '<rect x="5" y="11" width="14" height="9" rx="1.6"></rect><path d="M8 11V7.5a4 4 0 0 1 8 0V11"></path>',

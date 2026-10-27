@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './apiBase.js';
+import { collectPages } from './pagination.js';
 
 async function request(path, options = {}) {
   const token = localStorage.getItem('ts_auth_token');
@@ -34,11 +35,15 @@ async function request(path, options = {}) {
 export const api = {
   listNurseryPhotos: () => request('/nursery-photos/'),
   // Products
-  listCategories: () => request('/categories/'),
-  listProducts: (params = {}) => {
+  listCategories: (options = {}) => collectPages((params, requestOptions) => {
     const query = new URLSearchParams(params).toString();
-    return request(`/products/${query ? `?${query}` : ''}`);
+    return request(`/categories/?${query}`, { ...requestOptions, cache: 'no-store' });
+  }, {}, options),
+  listProducts: (params = {}, options = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/products/${query ? `?${query}` : ''}`, { ...options, cache: 'no-store' });
   },
+  listAllProducts: (params = {}, options = {}) => collectPages(api.listProducts, params, options),
   getProduct: (slug) => request(`/products/${slug}/`),
   getRelatedProducts: (slug) => request(`/products/${slug}/related/`),
 

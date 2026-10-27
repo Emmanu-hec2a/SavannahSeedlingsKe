@@ -35,6 +35,7 @@ class ProductStockField(serializers.IntegerField):
 
 class ProductListSerializer(serializers.ModelSerializer):
     category = serializers.StringRelatedField()
+    category_slug = serializers.SlugField(source='category.slug', read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), 
         source='category', 
@@ -47,7 +48,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'slug', 'category', 'category_id', 'price', 'original_price', 'primary_image', 'is_active', 'stock', 'description', 'planting_procedure', 'material', 'rating', 'reviews']
+        fields = ['id', 'name', 'slug', 'category', 'category_slug', 'category_id', 'price', 'original_price', 'primary_image', 'is_active', 'stock', 'description', 'planting_procedure', 'material', 'rating', 'reviews']
 
     def get_primary_image(self, obj):
         image = obj.images.filter(is_primary=True).first()
