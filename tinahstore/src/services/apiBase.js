@@ -1,5 +1,5 @@
 // Accept either a server origin or the complete versioned API URL.
-export function normalizeApiBase(value = 'http://127.0.0.1:8000') {
+export function normalizeApiBase(value = 'https://api.savannahseedlings.com') {
   const base = value.trim().replace(/\/+$/, '');
   return base.endsWith('/api/v1') ? base : `${base.replace(/\/api$/, '')}/api/v1`;
 }

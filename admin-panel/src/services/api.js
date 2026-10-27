@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { clearAdminSession, getAdminToken } from './adminSession';
 
-const origin = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+const origin = (import.meta.env.VITE_API_URL || 'https://api.savannahseedlings.com').replace(/\/+$/, '');
 
 const api = axios.create({
   baseURL: origin.endsWith('/api/v1') ? origin : `${origin}/api/v1`,
