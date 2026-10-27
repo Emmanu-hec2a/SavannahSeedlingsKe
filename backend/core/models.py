@@ -8,3 +8,20 @@ class AdminSession(models.Model):
     password_signature = models.CharField(max_length=64, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(db_index=True)
+
+
+class NurseryPhoto(models.Model):
+    image = models.ImageField(upload_to='nursery/', max_length=255)
+    caption = models.CharField(max_length=200, blank=True)
+    alt_text = models.CharField(max_length=200)
+    position = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_featured', 'position', 'pk']
+        constraints = [models.UniqueConstraint(
+            fields=['is_featured'], condition=models.Q(is_featured=True),
+            name='one_featured_nursery_photo',
+        )]

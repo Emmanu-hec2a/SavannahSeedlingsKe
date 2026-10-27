@@ -119,3 +119,39 @@ database and do not call M-PESA, Telegram or external storage.
 
 The login throttle currently uses Django's configured cache; use a shared cache
 and gateway-level rate limits for a multi-worker production deployment.
+
+### Admin actions verification
+
+See [the admin-actions verification report](../ADMIN_ACTIONS_VERIFICATION.md) for
+real API upload/update, delivery-setting and password-change checks, confirmed
+failures, reproduction commands, and the optional cross-app browser harness.
+Unlike `test:auth`, that harness uses a disposable real Django API rather than
+mock responses. The opt-in `ADMIN_ACTIONS_FOCUS=catalog-delivery` run passes 14
+browser checks and explicitly skips the two unrelated, known product-form issues.
+
+The report's Step 1 section documents transactional product saves, image-failure
+cleanup and stable batch IDs. Product-save safety checks can be run from `backend`
+with `python -B manage.py test products.test_save_safety --settings=tinahstore.test_settings --noinput`.
+Delivery-setting saves/validation and storefront stock/visibility regressions are
+now fixed. The backend suite passes 81 tests (one opt-in browser test is skipped
+by default). Deploy the backend and rebuilt admin frontend; no migration is needed.
+Photo removal and clearing Original Price remain separate open product-form issues.
+
+### Nursery Photos and homepage motion
+
+The new **Nursery Photos** sidebar page manages homepage nursery photography:
+upload/preview, caption, accessibility description, numeric display order,
+featured selection, publish/hide, replacement and confirmed permanent removal.
+Uploads are validated and compressed server-side; failed replacements preserve
+the saved photo and draft. Refresh photos reloads the list without clearing edits.
+
+This feature adds `core.0002_nurseryphoto`: deploy the backend and run
+`python manage.py migrate` before publishing the admin frontend. The earlier
+"no migration" note applies only to the stock/visibility/delivery fixes above.
+Deploy the storefront too for the gallery and subtle accessible animations.
+The current nursery illustration remains until real photos are published.
+
+See [nursery/motion verification and deployment notes](../NURSERY_MOTION_VERIFICATION.md)
+for safeguards, local checks and the opt-in `ADMIN_ACTIONS_FOCUS=nursery-motion`
+real-API browser run. The expanded isolated backend suite now passes 95 tests,
+with one opt-in browser test skipped by default.

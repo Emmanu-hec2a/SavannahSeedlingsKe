@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, Package, FolderOpen,
-  CreditCard, Truck, Settings, LogOut, User, Sprout
+  CreditCard, Truck, Settings, LogOut, User, Sprout, Image
 } from 'lucide-react';
 import { AdminContext } from '../../context/AdminContext';
 
@@ -16,6 +16,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { label: 'Orders', path: '/orders', icon: ShoppingBag, badge: pendingCount },
     { label: 'Seedlings', path: '/products', icon: Package },
     { label: 'Categories', path: '/categories', icon: FolderOpen },
+    { label: 'Nursery Photos', path: '/nursery-photos', icon: Image },
     { type: 'divider' },
     { label: 'Payments', path: '/payments', icon: CreditCard },
     { label: 'Delivery Queue', path: '/delivery', icon: Truck },
@@ -47,7 +48,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-1">
           {menuItems.map((item, i) => {
             if (item.type === 'divider') {
               return <div key={i} className="h-px bg-white/10 my-4 mx-3"></div>;

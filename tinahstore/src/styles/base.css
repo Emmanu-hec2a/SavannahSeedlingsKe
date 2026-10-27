@@ -298,7 +298,7 @@ p{color:var(--ink)}
 .breadcrumb .current{color:var(--teal-ink)}
 
 /* ---------- hero ---------- */
-.hero{position:relative;overflow:hidden;padding:64px 0 0; width: 100%; }
+.hero{position:relative;overflow:hidden;padding:64px 0 48px; width: 100%; }
 .hero .container{display:grid;grid-template-columns:1.05fr 1fr;align-items:center;gap:40px}
 .hero-copy .h1{margin:0 0 22px}
 .hero-actions{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap}
@@ -314,7 +314,7 @@ p{color:var(--ink)}
 .hero-tag .tline{color:var(--brass);letter-spacing:.1em;text-transform:uppercase;font-size:10px;margin-bottom:4px}
 
 @media (max-width:900px){
-  .hero { padding: 40px 0 20px; }
+  .hero { padding: 40px 0 32px; }
   .hero .container { grid-template-columns: 1fr; text-align: center; gap: 48px; }
   .hero-copy { order: 1; display: flex; flex-direction: column; align-items: center; }
   .hero-copy .h1 { font-size: 38px; margin-bottom: 16px; }

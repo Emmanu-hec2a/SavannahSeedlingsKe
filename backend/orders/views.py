@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils.crypto import constant_time_compare
 from rest_framework.exceptions import NotFound
 from .models import Order
-from .serializers import OrderSerializer
+from .serializers import OrderSerializer, DeliverySettingSerializer
 
 class OrderListCreateView(generics.ListCreateAPIView):
     queryset = Order.objects.all().order_by('-created_at')
@@ -74,23 +74,25 @@ from .models import DeliverySetting
 class DeliverySettingView(APIView):
     def get(self, request):
         setting = DeliverySetting.get_settings()
-        return Response({
-            'nairobi_delivery_fee': float(setting.nairobi_delivery_fee),
-            'upcountry_delivery_fee': float(setting.upcountry_delivery_fee),
-            'updated_at': setting.updated_at
-        })
+        return Response(DeliverySettingSerializer(setting).data)
+
     def put(self, request):
+        return self.save_settings(request)
+
+    def patch(self, request):
+        return self.save_settings(request)
+
+    def save_settings(self, request):
         if not (request.user and request.user.is_staff):
             return Response({'detail': 'Admin permission required'}, status=403)
-        setting = DeliverySetting.get_settings()
-        if 'nairobi_delivery_fee' in request.data:
-            setting.nairobi_delivery_fee = request.data['nairobi_delivery_fee']
-        if 'upcountry_delivery_fee' in request.data:
-            setting.upcountry_delivery_fee = request.data['upcountry_delivery_fee']
-        setting.save()
-        return Response({
-            'nairobi_delivery_fee': float(setting.nairobi_delivery_fee),
-            'upcountry_delivery_fee': float(setting.upcountry_delivery_fee),
-            'updated_at': setting.updated_at
-        })
+        serializer = DeliverySettingSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            setting = DeliverySetting.get_settings()
+            setting = DeliverySetting.objects.select_for_update().get(pk=setting.pk)
+            for field, value in serializer.validated_data.items():
+                setattr(setting, field, value)
+            setting.save()
+            data = DeliverySettingSerializer(setting).data
+        return Response(data)
 

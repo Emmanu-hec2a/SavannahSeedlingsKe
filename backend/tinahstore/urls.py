@@ -6,6 +6,11 @@ from core.views_admin import admin_dashboard_stats, get_me, change_password
 from core.views_auth import GoogleLogin
 from core.views_admin_auth import AdminLoginView, AdminSessionView, AdminLogoutView, AdminPasswordView
 from rest_framework.authtoken.views import obtain_auth_token
+from rest_framework.routers import SimpleRouter
+from core.views_nursery import NurseryPhotoViewSet
+
+nursery_router = SimpleRouter()
+nursery_router.register('nursery-photos', NurseryPhotoViewSet, basename='nursery-photo')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -22,6 +27,7 @@ urlpatterns = [
     path('api/v1/auth/registration/', include('dj_rest_auth.registration.urls')),
     path('api/v1/admin/dashboard/', admin_dashboard_stats, name='admin_dashboard'),
     path('api/v1/', include([
+        path('', include(nursery_router.urls)),
         path('products/', include('products.urls')),
         path('categories/', include('products.urls_categories')),
         path('orders/', include('orders.urls')),

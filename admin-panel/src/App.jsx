@@ -15,6 +15,7 @@ import Categories from './pages/Categories';
 import Payments from './pages/Payments';
 import Delivery from './pages/Delivery';
 import Settings from './pages/Settings';
+import NurseryPhotos from './pages/NurseryPhotos';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading, sessionError } = useContext(AdminContext);
@@ -42,6 +43,7 @@ function App() {
           <Route path="/products/new" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
           <Route path="/products/:slug/edit" element={<ProtectedRoute><ProductForm /></ProtectedRoute>} />
           <Route path="/categories" element={<ProtectedRoute><Categories /></ProtectedRoute>} />
+          <Route path="/nursery-photos" element={<ProtectedRoute><NurseryPhotos /></ProtectedRoute>} />
           <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
           <Route path="/delivery" element={<ProtectedRoute><Delivery /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

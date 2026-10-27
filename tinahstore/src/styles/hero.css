@@ -1,0 +1,64 @@
+/* Photographic hero. Existing section padding and CTA margins remain intact. */
+.hero--photographic {
+  isolation: isolate;
+  background: #102b19;
+  --teal-ink: #f1f8ef;
+  --ink: #f1f8ef;
+  --muted: #e1ece1;
+  --brass: #ffce85;
+}
+.hero--photographic > .container {
+  position: relative;
+  z-index: 5;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 440px;
+}
+.hero--photographic .hero-copy { max-width: 640px; }
+.home-page .hero--photographic .hero-copy > * { animation: none; }
+.hero--photographic .lede { color: #e1ece1; }
+.hero--photographic .btn-primary { background: #e8f5e9; color: #15361b; }
+.hero--photographic .btn-primary:hover { background: #fff; color: #15361b; }
+.hero--photographic .btn-outline { border-color: #e8f5e9; color: #f1f8ef; }
+.hero--photographic .btn-outline:hover { background: #e8f5e9; color: #15361b; }
+.hero--photographic :focus-visible { outline-color: #ffce85; }
+.hero--photographic::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(4, 25, 13, .92), rgba(4, 25, 13, .82) 45%, rgba(4, 25, 13, .46)),
+    linear-gradient(0deg, rgba(4, 25, 13, .28), transparent 70%);
+}
+.hero-background { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.hero-photo-base, .hero-photo-slide { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hero-photo-base img, .hero-photo-slide { width: 100%; height: 100%; object-fit: cover; object-position: center 58%; }
+.hero-photo-slide { opacity: 0; z-index: 0; }
+
+@media (min-width: 901px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .hero-background.is-ready .hero-photo-slide {
+    animation-name: hero-photo-cycle;
+    animation-duration: 18s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    animation-play-state: paused;
+  }
+  .hero-background.is-ready.is-playing .hero-photo-slide { animation-play-state: running; }
+  .hero--photographic:hover .hero-background .hero-photo-slide,
+  .hero--photographic:focus-within .hero-background .hero-photo-slide { animation-play-state: paused; }
+}
+@media (max-width: 900px) {
+  .hero--photographic > .container { min-height: 520px; }
+  .hero--photographic .hero-copy { max-width: 640px; margin-inline: auto; }
+  .hero--photographic::before { background: rgba(4, 25, 13, .78); }
+  .hero-photo-base img { object-position: center; }
+}
+/* Each photo enters every 6s. Its 800ms fade completes before the old layer is
+   removed behind it, including the last-to-first transition. The base photo
+   always remains underneath, so loading/errors never expose a blank frame. */
+@keyframes hero-photo-cycle {
+  0% { opacity: 0; z-index: 3; }
+  4.444% { opacity: 1; z-index: 3; }
+  4.445%, 37.777% { opacity: 1; z-index: 2; }
+  37.778%, 100% { opacity: 0; z-index: 0; }
+}

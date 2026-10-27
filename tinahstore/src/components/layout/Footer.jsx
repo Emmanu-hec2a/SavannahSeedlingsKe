@@ -1,8 +1,13 @@
 import { Link } from 'react-router-dom';
 import Icon from '../icons/Icon.jsx';
 import SavannahLogo from '../common/SavannahLogo.jsx';
+import { useRef } from 'react';
+import { useSectionReveals } from '../../hooks/useSectionReveals.js';
 
 export default function Footer({ compact = false }) {
+  const footerRef = useRef(null);
+  useSectionReveals(footerRef, compact);
+
   if (compact) {
     return (
       <footer className="site-footer">
@@ -15,8 +20,8 @@ export default function Footer({ compact = false }) {
   }
 
   return (
-    <footer className="site-footer" id="footer-contact">
-      <div className="container footer-grid">
+    <footer ref={footerRef} className="site-footer" id="footer-contact">
+      <div className="container footer-grid" data-reveal="fade">
         <div className="footer-brand">
           <Link to="/" className="logo flex items-center gap-2 mb-3">
             <SavannahLogo showTagline />
@@ -51,7 +56,7 @@ export default function Footer({ compact = false }) {
           <div className="contact-line"><Icon name="mail" className="icon icon-sm" /> savannahseedlings@gmail.com</div>
         </div>
       </div>
-      <div className="container footer-bottom">
+      <div className="container footer-bottom" data-reveal="fade">
         <span>© 2026 Savannah Seedlings. All rights reserved. "Seeding Africa for Sustainable fruit farming"</span>
         <div className="pay-icons">
           <span className="pay-chip">M-PESA</span>

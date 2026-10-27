@@ -9,11 +9,11 @@ export default function SeedlingIllustration({ color = '#2e7d32', detailed = fal
       {/* Plant stem */}
       <path d="M60 85 V 40" stroke="#2E7D32" strokeWidth="6" strokeLinecap="round" />
       {/* Left Leaf */}
-      <path d="M60 55 C 40 50, 30 35, 30 25 C 45 25, 58 38, 60 55 Z" fill="#2E7D32" />
+      <path className="seedling-leaf seedling-leaf-left" d="M60 55 C 40 50, 30 35, 30 25 C 45 25, 58 38, 60 55 Z" fill="#2E7D32" />
       {/* Right Leaf */}
-      <path d="M60 45 C 80 40, 90 25, 90 15 C 75 15, 62 28, 60 45 Z" fill="#4CAF50" />
+      <path className="seedling-leaf seedling-leaf-right" d="M60 45 C 80 40, 90 25, 90 15 C 75 15, 62 28, 60 45 Z" fill="#4CAF50" />
       {/* Top sprout */}
-      <path d="M60 40 C 55 30, 58 20, 60 18 C 62 20, 65 30, 60 40 Z" fill="#81C784" />
+      <path className="seedling-leaf seedling-leaf-top" d="M60 40 C 55 30, 58 20, 60 18 C 62 20, 65 30, 60 40 Z" fill="#81C784" />
       {/* Sun Ray / Fruit accent */}
       {detailed && <circle cx="85" cy="30" r="8" fill="#E67E22" opacity="0.85" />}
     </svg>

@@ -1,0 +1,44 @@
+/* Nursery storytelling: no changes to existing section padding or hero gaps. */
+.nursery-gallery { margin-top: 64px; }
+.nursery-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.nursery-photo { min-width: 0; overflow: hidden; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); }
+.nursery-photo img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; }
+.nursery-photo figcaption { padding: 18px 20px; font-size: 14px; color: var(--ink); overflow-wrap: anywhere; }
+.nursery-photo-featured { border-color: var(--brass); }
+.product-card .wish[aria-pressed='true'] { color: var(--brass); }
+.product-card .wish[aria-pressed='true'] svg { fill: currentColor; }
+.product-card:focus-within .quick { bottom: 0; }
+
+@media (max-width: 900px) {
+  .nursery-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nursery-gallery { margin-top: 48px; }
+}
+@media (max-width: 560px) {
+  .nursery-photo-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .count-feedback { animation: count-acknowledge 240ms ease-out; }
+  .product-card .wish { transition: color 180ms ease, transform 120ms ease; }
+  .product-card .wish:active { transform: scale(.94); }
+  @media (hover: hover) and (pointer: fine) {
+    .product-card .product-image { transition: transform 280ms ease; }
+    .product-card:hover .product-image { transform: scale(1.025); }
+  }
+}
+@media (hover: none) {
+  .product-card:hover, .cat-card:hover { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .home-page *, .home-page *::before, .home-page *::after,
+  .product-card, .product-card *, .count-feedback {
+    animation: none !important;
+    transition: none !important;
+  }
+  .home-page .btn:active, .cat-card:hover, .product-card:hover { transform: none; }
+}
+@keyframes count-acknowledge {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.16); }
+}

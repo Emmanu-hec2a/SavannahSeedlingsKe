@@ -3,5 +3,6 @@
 /admin-panel/.wrangler/
 
 /backend/.env
+/backend/.local-demo/
 /tinahstore/node_modules
 /tinahstore/.env

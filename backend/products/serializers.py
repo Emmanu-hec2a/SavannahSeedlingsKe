@@ -23,6 +23,16 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         model = ProductVariant
         fields = ['id', 'color_name', 'color_hex', 'size', 'stock']
 
+
+class ProductStockField(serializers.IntegerField):
+    """Read batch availability without changing legacy product-stock writes."""
+    def get_attribute(self, instance):
+        return instance
+
+    def to_representation(self, product):
+        return product.available_stock
+
+
 class ProductListSerializer(serializers.ModelSerializer):
     category = serializers.StringRelatedField()
     category_id = serializers.PrimaryKeyRelatedField(
@@ -31,7 +41,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         write_only=True
     )
     primary_image = serializers.SerializerMethodField()
-    stock = serializers.SerializerMethodField()
+    stock = ProductStockField(read_only=True)
     rating = serializers.SerializerMethodField()
     reviews = serializers.SerializerMethodField()
 
@@ -50,12 +60,6 @@ class ProductListSerializer(serializers.ModelSerializer):
             return image.image.url
         return None
 
-    def get_stock(self, obj):
-        # Calculate total stock across all variants, or use product stock if no variants
-        if obj.variants.exists():
-            return sum(v.stock for v in obj.variants.all())
-        return obj.stock
-
     def get_rating(self, obj):
         from django.db.models import Avg
         avg = obj.reviews.aggregate(avg=Avg('rating'))['avg']
@@ -65,6 +69,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         return obj.reviews.count()
 
 class ProductDetailSerializer(serializers.ModelSerializer):
+    stock = ProductStockField(required=False, min_value=0, max_value=2147483647)
     category = CategorySerializer(read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), 

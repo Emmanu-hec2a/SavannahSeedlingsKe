@@ -8,6 +8,7 @@ import MobileMenu from './MobileMenu.jsx';
 import { useCart } from '../../hooks/useCart.js';
 import { WishlistContext } from '../../context/WishlistContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
+import CountBadge from '../ui/CountBadge.jsx';
 
 export default function Header() {
   const [navOpen, setNavOpen] = useState(false);
@@ -44,8 +45,8 @@ export default function Header() {
               <Link to="/account" className="icon-btn" aria-label="Account">
                 {user ? <span className="text-xs font-bold bg-teal-pale text-teal-ink w-6 h-6 rounded-full flex items-center justify-center">{(user.username || user.email).charAt(0).toUpperCase()}</span> : <Icon name="user" />}
               </Link>
-              <Link to="/wishlist" className="icon-btn header-secondary-action" aria-label="Wishlist"><Icon name="heart" />{wishlist.count > 0 && <span className="badge">{wishlist.count}</span>}</Link>
-              <Link to="/cart" className="icon-btn header-secondary-action" aria-label="Cart"><Icon name="leaf" /><span className="badge">{cart.count}</span></Link>
+              <Link to="/wishlist" className="icon-btn header-secondary-action" aria-label="Wishlist"><Icon name="heart" /><CountBadge className="badge" count={wishlist.count} hideZero /></Link>
+              <Link to="/cart" className="icon-btn header-secondary-action" aria-label="Cart"><Icon name="leaf" /><CountBadge className="badge" count={cart.count} /></Link>
               <button
                 className="icon-btn nav-toggle"
                 type="button"
@@ -67,11 +68,11 @@ export default function Header() {
       <div className="mobile-floating-actions" aria-label="Quick actions">
         <Link to="/wishlist" className="floating-action" aria-label={`Wishlist${wishlist.count ? `, ${wishlist.count} items` : ''}`}>
           <Icon name="heart" />
-          {wishlist.count > 0 && <span className="floating-badge">{wishlist.count}</span>}
+          <CountBadge className="floating-badge" count={wishlist.count} hideZero />
         </Link>
         <Link to="/cart" className="floating-action" aria-label={`Cart, ${cart.count} items`}>
           <Icon name="leaf" />
-          <span className="floating-badge">{cart.count}</span>
+          <CountBadge className="floating-badge" count={cart.count} />
         </Link>
       </div>
     </>

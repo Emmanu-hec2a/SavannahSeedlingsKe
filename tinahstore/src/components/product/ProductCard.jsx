@@ -9,7 +9,7 @@ import { WishlistContext } from '../../context/WishlistContext.jsx';
 import { useCart } from '../../hooks/useCart.js';
 import { useToast } from '../../context/ToastContext.jsx';
 
-export default function ProductCard({ product, quickAdd = false, className = '' }) {
+export default function ProductCard({ product, quickAdd = false, className = '', reveal = false }) {
   const wishlist = useContext(WishlistContext);
   const cart = useCart();
   const { showToast } = useToast();
@@ -18,12 +18,14 @@ export default function ProductCard({ product, quickAdd = false, className = '' 
   const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
 
   return (
-    <Link to={`/product/${product.slug}`} className={`product-card ${className}`}>
+    <Link to={`/product/${product.slug}`} className={`product-card ${className}`} data-reveal={reveal ? 'fade' : undefined}>
       <div className="media">
         {product.badge && <Badge tone={product.badge === 'New' ? 'new' : 'sale'} className="sale-pill">{product.badge}</Badge>}
         <button
+          type="button"
           className={`icon-btn wish ${wished ? 'active' : ''}`}
-          aria-label="Wishlist"
+          aria-label={wished ? 'Remove from wishlist' : 'Add to wishlist'}
+          aria-pressed={wished}
           onClick={(event) => {
             event.preventDefault();
             wishlist.toggle(product.id);

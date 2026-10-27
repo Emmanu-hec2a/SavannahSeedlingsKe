@@ -13,6 +13,25 @@ from core.services.telegram import telegram_service
 logger = logging.getLogger(__name__)
 
 
+class DeliverySettingSerializer(serializers.ModelSerializer):
+    nairobi_delivery_fee = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal('0.00'), required=False)
+    upcountry_delivery_fee = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal('0.00'), required=False)
+
+    class Meta:
+        model = DeliverySetting
+        fields = ['nairobi_delivery_fee', 'upcountry_delivery_fee', 'updated_at']
+        read_only_fields = ['updated_at']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Preserve the existing numeric JSON response; validation/storage use Decimal.
+        data['nairobi_delivery_fee'] = float(instance.nairobi_delivery_fee)
+        data['upcountry_delivery_fee'] = float(instance.upcountry_delivery_fee)
+        return data
+
+
 class OrderItemSerializer(serializers.ModelSerializer):
     product_slug = serializers.SlugRelatedField(slug_field='slug', queryset=Product.objects.filter(is_active=True), source='product')
     product_name = serializers.CharField(source='product.name', read_only=True)

@@ -32,6 +32,7 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  listNurseryPhotos: () => request('/nursery-photos/'),
   // Products
   listCategories: () => request('/categories/'),
   listProducts: (params = {}) => {

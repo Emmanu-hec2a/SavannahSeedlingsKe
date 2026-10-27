@@ -55,13 +55,22 @@ const Settings = () => {
     e.preventDefault();
     setUpdatingDelivery(true);
     try {
-      await api.patch('/orders/delivery-settings/', {
-        nairobi_delivery_fee: parseFloat(deliveryData.nairobi_delivery_fee),
-        upcountry_delivery_fee: parseFloat(deliveryData.upcountry_delivery_fee),
+      const response = await api.patch('/orders/delivery-settings/', {
+        nairobi_delivery_fee: deliveryData.nairobi_delivery_fee,
+        upcountry_delivery_fee: deliveryData.upcountry_delivery_fee,
+      });
+      setDeliveryData({
+        nairobi_delivery_fee: response.data.nairobi_delivery_fee,
+        upcountry_delivery_fee: response.data.upcountry_delivery_fee,
       });
       toast.success('Delivery rates updated successfully!');
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to update delivery settings');
+      const errors = err.response?.data;
+      const fieldError = errors?.nairobi_delivery_fee?.[0]
+        ? `Nairobi delivery fee: ${errors.nairobi_delivery_fee[0]}`
+        : errors?.upcountry_delivery_fee?.[0]
+          ? `Upcountry delivery fee: ${errors.upcountry_delivery_fee[0]}` : null;
+      toast.error(errors?.detail || fieldError || 'Failed to update delivery settings');
     } finally {
       setUpdatingDelivery(false);
     }
@@ -85,9 +94,12 @@ const Settings = () => {
 
                 <form onSubmit={handleDeliverySave} className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="label">Nairobi Region Delivery Fee (KSh)</label>
+                    <label className="label" htmlFor="nairobi-delivery-fee">Nairobi Region Delivery Fee (KSh)</label>
                     <input
+                      id="nairobi-delivery-fee"
                       type="number"
+                      min="0"
+                      max="99999999.99"
                       step="0.01"
                       required
                       className="input font-mono"
@@ -99,9 +111,12 @@ const Settings = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="label">Upcountry / Rest of Kenya Delivery Fee (KSh)</label>
+                    <label className="label" htmlFor="upcountry-delivery-fee">Upcountry / Rest of Kenya Delivery Fee (KSh)</label>
                     <input
+                      id="upcountry-delivery-fee"
                       type="number"
+                      min="0"
+                      max="99999999.99"
                       step="0.01"
                       required
                       className="input font-mono"

@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:auth": "node scripts/check-auth.mjs"
+    "test:auth": "node scripts/check-auth.mjs",
+    "test:motion": "node scripts/check-scroll-reveals.mjs",
+    "test:hero": "node --experimental-websocket scripts/check-hero.mjs"
   },
   "dependencies": {
     "@react-oauth/google": "^0.12.2",

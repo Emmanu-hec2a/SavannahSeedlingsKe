@@ -12,6 +12,8 @@ import ToastContainer from './components/ui/ToastContainer.jsx';
 import { OptionalGoogleOAuthProvider } from './components/auth/GoogleSignIn.jsx';
 import './styles/tokens.css';
 import './styles/base.css';
+import './styles/motion.css';
+import './styles/hero.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

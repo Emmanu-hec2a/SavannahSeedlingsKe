@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Icon from '../components/icons/Icon.jsx';
 import SEO from '../components/common/SEO.jsx';
 import ProductCard from '../components/product/ProductCard.jsx';
 import SeedlingIllustration from '../assets/illustrations/SeedlingIllustration.jsx';
 import { useProducts } from '../hooks/useProducts.js';
+import { useSectionReveals } from '../hooks/useSectionReveals.js';
+import NurseryGallery from '../components/common/NurseryGallery.jsx';
+import HeroBackground from '../components/common/HeroBackground.jsx';
 
 const categories = [
   ['Avocado Seedlings', 'Grafted Hass, Fuerte & Jumbo', SeedlingIllustration],
@@ -23,12 +26,15 @@ const contactLinks = [
 export default function Home() {
   const { products, isLoading } = useProducts({ ordering: '-created_at' });
   const { hash } = useLocation();
+  const homeRef = useRef(null);
+  const heroRef = useRef(null);
+  useSectionReveals(homeRef);
 
   useEffect(() => {
     if (hash) {
       const element = document.getElementById(hash.replace('#', ''));
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
+        element.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
       }
     }
   }, [hash]);
@@ -63,8 +69,9 @@ export default function Home() {
   return (
     <>
       <SEO schemaData={[homeSchema, orgSchema]} />
-
-      <section className="hero">
+      <div ref={homeRef} className="home-page">
+      <section ref={heroRef} className="hero hero--photographic">
+        <HeroBackground heroRef={heroRef} />
         <div className="container">
           <div className="hero-copy">
             <p className="eyebrow">🌱 Seeding Africa for Sustainable fruit farming</p>
@@ -73,14 +80,6 @@ export default function Home() {
             <div className="hero-actions">
               <Link to="/shop" className="btn btn-primary">Shop Seedlings</Link>
               <a href="#about" className="btn btn-outline">Our Nurseries</a>
-            </div>
-          </div>
-          <div className="hero-art">
-            <div className="ring"></div>
-            <SeedlingIllustration color="#2E7D32" detailed />
-            <div className="hero-tag">
-              <div className="tline">Savannah Seedlings</div>
-              <div>Certified Grafted Varieties</div>
             </div>
           </div>
         </div>
@@ -94,17 +93,17 @@ export default function Home() {
             ['leaf', 'Certified Grafted', 'High Yield & Fast Fruiting'],
             ['shield', 'Order on WhatsApp', '+254 710 583 989'],
           ].map(([icon, title, copy]) => (
-            <div className="trust-item" key={title}><Icon name={icon} className="icon icon-lg" /><div><strong>{title}</strong><span>{copy}</span></div></div>
+            <div className="trust-item" key={title} data-reveal="fade"><Icon name={icon} className="icon icon-lg" /><div><strong>{title}</strong><span>{copy}</span></div></div>
           ))}
         </div>
       </div>
 
       <section>
         <div className="container">
-          <div className="section-head"><div><p className="eyebrow">Browse Catalog</p><h2 className="h2">Fruit Seedling Categories</h2></div></div>
+          <div className="section-head" data-reveal="fade"><div><p className="eyebrow">Browse Catalog</p><h2 className="h2">Fruit Seedling Categories</h2></div></div>
           <div className="cat-grid">
             {categories.map(([name, copy, Art]) => (
-              <Link to={`/shop?search=${encodeURIComponent(name.split(' ')[0])}`} className="cat-card" key={name}>
+              <Link to={`/shop?search=${encodeURIComponent(name.split(' ')[0])}`} className="cat-card" key={name} data-reveal="fade">
                 <div className="art"><Art color="#2E7D32" /></div>
                 <h3>{name}</h3>
                 <span className="muted" style={{ fontSize: 13 }}>{copy}</span>
@@ -116,7 +115,7 @@ export default function Home() {
 
       <section style={{ background: 'var(--surface)', borderTop: '1px solid var(--hairline)', borderBottom: '1px solid var(--hairline)' }}>
         <div className="container">
-          <div className="section-head">
+          <div className="section-head" data-reveal="fade">
             <div><p className="eyebrow">Top Rated Seedlings</p><h2 className="h2">Featured Fruit Seedlings</h2></div>
             <Link to="/shop" className="view-all">View all seedlings <Icon name="arrowRight" className="icon icon-sm" /></Link>
           </div>
@@ -124,7 +123,7 @@ export default function Home() {
             {isLoading ? (
               Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton-card" style={{ height: 400, background: '#eee', borderRadius: 8 }}></div>)
             ) : (
-              products.slice(0, 4).map((product) => <ProductCard product={product} quickAdd key={product.id} />)
+              products.slice(0, 4).map((product) => <ProductCard product={product} quickAdd key={product.id} reveal />)
             )}
           </div>
         </div>
@@ -134,20 +133,20 @@ export default function Home() {
         <div className="container">
           <div className="story about-story">
             <div>
-              <p className="eyebrow">About Savannah Seedlings</p>
-              <h2 className="h2" style={{ marginBottom: 20 }}>Propagating Sustainable Agriculture across Kenya.</h2>
-              <p className="lede" style={{ marginBottom: 20 }}>Savannah Seedlings is dedicated to seeding Africa for sustainable fruit farming. Our certified horticulturists cultivate healthy, pest-free, high-yield grafted fruit seedlings to empower smallholders, commercial orchards, and household growers across Kenya.</p>
+              <p className="eyebrow" data-reveal="fade">About Savannah Seedlings</p>
+              <h2 className="h2" style={{ marginBottom: 20 }} data-reveal="fade">Propagating Sustainable Agriculture across Kenya.</h2>
+              <p className="lede" style={{ marginBottom: 20 }} data-reveal="fade">Savannah Seedlings is dedicated to seeding Africa for sustainable fruit farming. Our certified horticulturists cultivate healthy, pest-free, high-yield grafted fruit seedlings to empower smallholders, commercial orchards, and household growers across Kenya.</p>
               <div className="about-points">
-                <div><strong>Nairobi Nursery</strong><span>Located at Kasarani Kastemil Junction, Nairobi for convenient city pickups and delivery arrangements.</span></div>
-                <div><strong>Murang'a Nursery</strong><span>Situated at Kwa Samaki Murang'a along the Nairobi-Nyeri Highway for upcountry farmers.</span></div>
-                <div><strong>Complete Planting Guides</strong><span>Every seedling comes with step-by-step planting, spacing, and care procedures for maximum yield.</span></div>
+                <div data-reveal="fade"><strong>Nairobi Nursery</strong><span>Located at Kasarani Kastemil Junction, Nairobi for convenient city pickups and delivery arrangements.</span></div>
+                <div data-reveal="fade"><strong>Murang'a Nursery</strong><span>Situated at Kwa Samaki Murang'a along the Nairobi-Nyeri Highway for upcountry farmers.</span></div>
+                <div data-reveal="fade"><strong>Complete Planting Guides</strong><span>Every seedling comes with step-by-step planting, spacing, and care procedures for maximum yield.</span></div>
               </div>
-              <div className="hero-actions">
+              <div className="hero-actions" data-reveal="fade">
                 <Link to="/shop" className="btn btn-primary">Browse Seedlings</Link>
                 <a href="#contact" className="btn btn-outline">Contact Nursery</a>
               </div>
             </div>
-            <div className="art about-panel">
+            <div className="art about-panel" data-reveal="fade">
               <SeedlingIllustration color="#2E7D32" detailed />
               <div className="about-stats">
                 <div><strong>Africa-wide</strong><span>Delivery arranged on WhatsApp</span></div>
@@ -156,15 +155,16 @@ export default function Home() {
               </div>
             </div>
           </div>
+          <NurseryGallery />
         </div>
       </section>
 
       <section style={{ background: 'var(--surface)', borderTop: '1px solid var(--hairline)', borderBottom: '1px solid var(--hairline)' }}>
         <div className="container">
-          <div className="section-head"><div><p className="eyebrow">Farmer Testimonials</p><h2 className="h2">What Growers Say</h2></div></div>
+          <div className="section-head" data-reveal="fade"><div><p className="eyebrow">Farmer Testimonials</p><h2 className="h2">What Growers Say</h2></div></div>
           <div className="testi-grid">
             {['Grafted Hass Avocado seedlings took root wonderfully on my Murang\'a farm. Already flowering early!', 'Ordered 50 Grafted Pixie Orange seedlings via WhatsApp. Delivered right to my farm in Machakos.', 'Excellent root stock quality and step-by-step planting guidance provided by the team.'].map((quote, index) => (
-              <div className="testi-card" key={quote}>
+              <div className="testi-card" key={quote} data-reveal="fade">
                 <div className="rating">
                   <div className="stars">
                     {Array.from({ length: 5 }).map((_, i) => <Icon name="star" key={i} className="star-active" />)}
@@ -181,14 +181,14 @@ export default function Home() {
       <section id="contact" className="contact-section">
         <div className="container">
           <div className="contact-layout">
-            <div>
+            <div data-reveal="fade">
               <p className="eyebrow">Contact & Inquiries</p>
               <h2 className="h2">Need advice on fruit farming or bulk seedling orders?</h2>
               <p className="lede">Get in touch with Savannah Seedlings for agronomy support, nursery location directions, bulk discounts, or WhatsApp ordering.</p>
             </div>
             <div className="contact-grid">
               {contactLinks.map((item) => (
-                <a className="contact-card" href={item.href} key={item.label} target={item.href.startsWith('http') ? '_blank' : undefined} rel={item.href.startsWith('http') ? 'noreferrer' : undefined}>
+                <a className="contact-card" href={item.href} key={item.label} data-reveal="fade" target={item.href.startsWith('http') ? '_blank' : undefined} rel={item.href.startsWith('http') ? 'noreferrer' : undefined}>
                   <span className="contact-icon"><Icon name={item.icon} /></span>
                   <span>
                     <strong>{item.label}</strong>
@@ -202,6 +202,7 @@ export default function Home() {
       </section>
 
       <Newsletter />
+      </div>
     </>
   );
 }
@@ -210,7 +211,7 @@ function Newsletter() {
   const [submitted, setSubmitted] = useState(false);
   return (
     <section className="newsletter">
-      <div className="container">
+      <div className="container" data-reveal="fade">
         <p className="eyebrow">Farmer Community</p>
         <h2 className="h2">Get Seasonal Planting & Grafting Tips</h2>
         <form className="newsletter-form" onSubmit={(event) => { event.preventDefault(); setSubmitted(true); }}>
