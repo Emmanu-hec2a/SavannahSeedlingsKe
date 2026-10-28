@@ -22,19 +22,21 @@ const contactLinks = [
 export default function Home() {
   const { products, isLoading } = useProducts({ ordering: '-created_at' }, { limit: 4 });
   const { categories, isLoading: categoriesLoading, error: categoriesError, retry: retryCategories } = useCategories();
-  const { hash } = useLocation();
+  const { hash, key: locationKey } = useLocation();
   const homeRef = useRef(null);
   const heroRef = useRef(null);
   useSectionReveals(homeRef);
 
   useEffect(() => {
-    if (hash) {
-      const element = document.getElementById(hash.replace('#', ''));
-      if (element) {
-        element.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
-      }
-    }
-  }, [hash]);
+    if (!hash || isLoading || categoriesLoading) return;
+    // Wait for catalog layout and dialog scroll-unlocking before an anchor jump.
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(hash.slice(1))?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [hash, locationKey, isLoading, categoriesLoading]);
 
   const homeSchema = {
     "@context": "https://schema.org",

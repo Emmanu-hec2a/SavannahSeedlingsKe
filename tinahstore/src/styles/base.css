@@ -182,20 +182,21 @@ p{color:var(--ink)}
   .site-header .brand-name{font-size:19px;letter-spacing:-.02em}
   .main-nav { display: none; }
   .mobile-menu-dialog{
-    position:fixed;inset:0 0 0 auto;margin:0;width:min(360px,calc(100vw - 24px));max-width:none;
+    position:fixed;inset:0 0 0 auto;margin:0;width:75vw;max-width:75vw;
     height:100vh;height:100dvh;max-height:100%;padding:0;border:0;border-left:1px solid var(--hairline);
     border-radius:20px 0 0 20px;background:var(--surface);color:var(--ink);overflow:hidden;
     box-shadow:-16px 0 48px rgba(0,0,0,.22);overscroll-behavior:contain;
   }
   .mobile-menu-dialog[open]{display:flex;flex-direction:column;animation:mobile-menu-enter .22s ease-out}
-  .mobile-menu-dialog::backdrop{background:rgba(0,0,0,.48);backdrop-filter:blur(3px)}
+  .mobile-menu-dialog::backdrop{background:rgba(0,0,0,.4);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
   .mobile-menu-header{
     display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;
-    padding:calc(16px + env(safe-area-inset-top)) 20px 16px;border-bottom:1px solid var(--hairline);
+    padding:calc(16px + env(safe-area-inset-top)) 16px 16px;border-bottom:1px solid var(--hairline);
   }
   .mobile-menu-logo .brand-lockup{gap:7px}
   .mobile-menu-logo .brand-mark{width:28px;height:28px}
-  .mobile-menu-logo .brand-name{font-size:16px;line-height:1.2;font-weight:700}
+  .mobile-menu-logo{min-width:0}
+  .mobile-menu-logo .brand-name{font-size:clamp(12px,3.4vw,16px);line-height:1.2;font-weight:700}
   .mobile-menu-logo .brand-name > span:first-child{color:var(--teal-ink)}
   .mobile-menu-logo .brand-name > span:last-child{color:var(--brass)}
   .mobile-menu-close{
@@ -218,6 +219,10 @@ p{color:var(--ink)}
   .mobile-menu-link.is-active{background:var(--teal-pale);border-color:var(--hairline);font-weight:600}
   .mobile-menu-link.is-active > .icon:last-child{color:var(--teal-mid)}
   .mobile-menu-account{border-top:1px solid var(--hairline);margin-top:20px;padding-top:16px}
+  .mobile-menu-legal{border-top:1px solid var(--hairline);margin-top:16px;padding-top:12px}
+  .mobile-menu-legal .legal-links{display:flex;flex-direction:column;gap:4px}
+  .mobile-menu-legal .legal-links a{display:flex;align-items:center;min-height:44px;padding:10px 12px;color:var(--teal-ink);font-size:14px;overflow-wrap:anywhere;border-radius:8px}
+  .mobile-menu-legal .legal-links a:hover,.mobile-menu-legal .legal-links a.active{background:var(--teal-pale)}
   .mobile-menu-support{
     flex:none;padding:20px 20px calc(20px + env(safe-area-inset-bottom));border-top:1px solid var(--hairline);
     background:var(--porcelain);
@@ -603,12 +608,43 @@ p{color:var(--ink)}
 .footer-col .contact-line{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;margin-bottom:12px;color:var(--footer-text)}
 .footer-bottom{border-top:1px solid rgba(243, 246, 244, 0.15);padding-block:22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--footer-text);opacity: 0.7}
 .footer-bottom > span{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.legal-links{display:flex;flex-wrap:wrap;gap:8px 16px;min-width:0}
+.legal-links a{color:inherit;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.policy-form-note{margin-top:14px;color:var(--muted);font-size:13px;line-height:1.7}
+.policy-form-note a{color:var(--teal-ink);text-decoration:underline;text-underline-offset:3px}
+#services,#about,#contact{scroll-margin-top:160px}
 .pay-icons{display:flex;gap:10px;align-items:center;flex-wrap:wrap;max-width:100%}
 .pay-chip{border:1px solid rgba(243, 246, 244, 0.25);border-radius:4px;padding:4px 9px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.04em;color:var(--footer-text);white-space:nowrap}
 @media (max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;gap:32px}}
 @media (max-width:560px){.footer-grid{grid-template-columns:1fr}}
 
 /* ---------- generic page header (shop/cart/checkout) ---------- */
+.legal-page{max-width:940px;padding-top:24px;padding-bottom:80px;overflow-wrap:anywhere}
+.legal-header{margin:16px 0 32px}
+.legal-header h1{font-size:clamp(30px,5vw,44px);line-height:1.2}
+.legal-updated{margin:12px 0 20px;font-size:13px;color:var(--muted)}
+.legal-header .lede{max-width:68ch}
+.legal-draft{margin-top:24px;padding:16px 20px;border:1px solid var(--hairline);border-radius:var(--radius-md);background:var(--teal-pale);color:var(--teal-ink);font-size:13px;line-height:1.7}
+.legal-toc{padding:24px;margin-bottom:28px;border:1px solid var(--hairline);border-radius:var(--radius-lg);background:var(--surface)}
+.legal-toc h2{font-size:20px;margin-bottom:16px}
+.legal-toc ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 28px;padding-inline-start:20px;font-size:14px}
+.legal-toc a,.legal-body a,.legal-related a{text-decoration:underline;text-underline-offset:3px;color:var(--teal-ink)}
+.legal-body{padding:36px;background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius-lg)}
+.legal-policy-section{padding:0;scroll-margin-top:160px}
+.legal-policy-section + .legal-policy-section{margin-top:32px}
+.legal-policy-section h2{font-size:22px;line-height:1.3;margin-bottom:16px}
+.legal-policy-section p,.legal-policy-section li{font-size:15px;line-height:1.8}
+.legal-policy-section p + p{margin-top:14px}
+.legal-policy-section ul{list-style:disc;padding-inline-start:22px}
+.legal-policy-section li + li{margin-top:12px}
+.legal-related{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:28px;font-size:14px}
+@media(max-width:640px){.legal-body{padding:24px 20px}.legal-toc{padding:20px}.legal-toc ol{grid-template-columns:1fr}.legal-page{padding-top:16px;padding-bottom:56px}}
+@media print{
+  body:has(.legal-page) .site-header,body:has(.legal-page) .mobile-floating-actions,.legal-toc,.legal-related{display:none!important}
+  .legal-page{max-width:none;padding:0;color:#111}
+  .legal-body{border:0;padding:0;background:#fff}
+  .legal-page h1,.legal-page h2,.legal-page p,.legal-page li,.legal-page a{color:#111}
+}
 .page-head{padding:18px 0 36px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
 .page-head .h2{margin-bottom:6px}
 .shop-head .eyebrow{margin-bottom:8px}

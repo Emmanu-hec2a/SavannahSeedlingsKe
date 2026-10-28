@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import Icon from '../icons/Icon.jsx';
 import SavannahLogo from '../common/SavannahLogo.jsx';
+import LegalLinks from '../common/LegalLinks.jsx';
 
 export default function MobileMenu({ open, onClose, signedIn }) {
   const dialogRef = useRef(null);
@@ -49,6 +50,22 @@ export default function MobileMenu({ open, onClose, signedIn }) {
     }
   }
 
+  function keepFocusInside(event) {
+    if (event.key !== 'Tab') return;
+    const dialog = dialogRef.current;
+    const controls = [...dialog.querySelectorAll('a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+      .filter(control => control.getClientRects().length > 0);
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (!first) { event.preventDefault(); return; }
+    const outside = !dialog.contains(document.activeElement);
+    if (event.shiftKey && (document.activeElement === first || outside)) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || outside)) {
+      event.preventDefault(); first.focus();
+    }
+  }
+
   const sectionActive = (section) => pathname === '/' && hash === section;
 
   return createPortal(
@@ -58,6 +75,7 @@ export default function MobileMenu({ open, onClose, signedIn }) {
       className="mobile-menu-dialog"
       aria-labelledby="mobile-menu-title"
       onClick={dismissBackdrop}
+      onKeyDown={keepFocusInside}
       onCancel={(event) => { event.preventDefault(); onClose(); }}
     >
       <div className="mobile-menu-header">
@@ -78,6 +96,9 @@ export default function MobileMenu({ open, onClose, signedIn }) {
           <NavLink to="/shop" onClick={onClose} className={({ isActive }) => `mobile-menu-link${isActive ? ' is-active' : ''}`}>
             <Icon name="leaf" /><span>Shop Seedlings</span><Icon name="chevronRight" />
           </NavLink>
+          <Link to="/#services" onClick={onClose} className={`mobile-menu-link${sectionActive('#services') ? ' is-active' : ''}`} aria-current={sectionActive('#services') ? 'location' : undefined}>
+            <Icon name="droplet" /><span>Our Services</span><Icon name="chevronRight" />
+          </Link>
           <Link to="/#about" onClick={onClose} className={`mobile-menu-link${sectionActive('#about') ? ' is-active' : ''}`} aria-current={sectionActive('#about') ? 'location' : undefined}>
             <Icon name="mapPin" /><span>Nursery Locations</span><Icon name="chevronRight" />
           </Link>
@@ -91,6 +112,7 @@ export default function MobileMenu({ open, onClose, signedIn }) {
             <Icon name="user" /><span>{signedIn ? 'My Account' : 'Sign in / Create account'}</span><Icon name="chevronRight" />
           </NavLink>
         </div>
+        <div className="mobile-menu-legal"><LegalLinks onNavigate={onClose} /></div>
       </div>
 
       <div className="mobile-menu-support">

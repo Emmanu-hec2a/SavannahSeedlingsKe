@@ -116,6 +116,7 @@ export default function Checkout() {
               <button type="submit" className="btn btn-primary btn-block checkout-submit" disabled={isSubmitting}>
                 <Icon name="whatsapp" />{isSubmitting ? 'Saving your order…' : 'Save order & continue on WhatsApp'}
               </button>
+              <p className="policy-form-note">Read our <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</Link> and <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>. Saving an order stores your contact and delivery details before WhatsApp opens.</p>
               <p className="checkout-fine-print">Your order is saved before WhatsApp opens. Opening WhatsApp does not send the message or confirm payment.</p>
             </form>
             <aside className="summary-card checkout-summary" aria-label="Seedling order summary">

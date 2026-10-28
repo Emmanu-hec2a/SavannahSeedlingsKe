@@ -10,6 +10,7 @@ import OrderConfirmation from './pages/OrderConfirmation.jsx';
 import Wishlist from './pages/Wishlist.jsx';
 import Account from './pages/Account.jsx';
 import Signup from './pages/Signup.jsx';
+import LegalPage from './pages/LegalPage.jsx';
 
 const legacyRoutes = {
   '/index.html': '/',
@@ -42,6 +43,8 @@ export default function App() {
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/account" element={<Account />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/privacy-policy" element={<LegalPage kind="privacy" />} />
+          <Route path="/terms-of-service" element={<LegalPage kind="terms" />} />
         </Route>
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/confirmation" element={<OrderConfirmation />} />

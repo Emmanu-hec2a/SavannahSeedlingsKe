@@ -73,6 +73,7 @@ export default function Signup() {
               <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm your password" required />
             </div>
             <button className="btn btn-primary btn-block" type="submit">Create account</button>
+            <p className="policy-form-note">Read our <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</Link> and <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link> before continuing.</p>
 
             <GoogleSignIn
               label="Sign up with Google"

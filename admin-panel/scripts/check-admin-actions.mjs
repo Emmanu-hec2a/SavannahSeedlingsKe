@@ -10,7 +10,7 @@ import {homeStats, homeStatsNotice} from '../../tinahstore/src/data/homeStats.js
 
 const backend = new URL(process.argv[2]);
 const focus = process.env.ADMIN_ACTIONS_FOCUS || 'all';
-if (!['all', 'catalog-delivery', 'nursery-motion', 'catalog-sync'].includes(focus)) throw Error('Unknown admin-action test focus');
+if (!['all', 'catalog-delivery', 'nursery-motion', 'catalog-sync', 'navigation-legal'].includes(focus)) throw Error('Unknown admin-action test focus');
 if (process.env.RUN_ADMIN_BROWSER_TESTS !== '1' || backend.protocol !== 'http:' ||
     !['localhost', '127.0.0.1'].includes(backend.hostname) || !backend.port) {
   throw Error('Only the opted-in disposable local Django test server is allowed.');
@@ -86,6 +86,16 @@ const catalogChecks=new Set([
  'service links create safe accessible WhatsApp enquiries',
  'service cards preserve spacing and fit mobile and desktop in both themes',
 ]);
+const navigationLegalChecks=new Set([
+ 'mobile drawer uses 75 percent width with blurred backdrop in both themes',
+ 'mobile menu closes with backdrop and Escape and restores scrolling and focus',
+ 'native mobile dialog keeps keyboard focus inside and closes on desktop resize',
+ 'Our Services navigates from shop and repeated home visits below sticky header',
+ 'policy links work from menu with active state and accessible page focus',
+ 'policy pages load directly and fit mobile and desktop in both themes',
+ 'footer signup and checkout expose policies without changing checkout flow',
+ 'legal documents retain draft status when printed and do not change shop indexing',
+]);
 const originalPassword='QA-Original-Password-42!',newPassword='QA-Replaced-Password-73!';
 const doc=()=>frame.contentDocument,text=()=>doc()?.body?.innerText||'';
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -93,6 +103,7 @@ const assert=(condition,message)=>{if(!condition)throw Error(message)};
 async function until(fn,label){for(let i=0;i<100;i++){try{if(fn())return}catch{}await pause(40)}throw Error('Timed out: '+label+' | '+text().slice(-200));}
 async function test(name,run){
  if(focus==='catalog-sync'&&!catalogChecks.has(name))return;
+ if(focus==='navigation-legal'&&!navigationLegalChecks.has(name))return;
  if(focus!=='all'&&deferred.includes(name)){
   results.push({name,skipped:true,reason:'Known product-form issue outside the catalog/delivery fix'});return;
  }
@@ -142,6 +153,128 @@ async function passwordForm(old,next,confirm=next){
 }
 (async()=>{
  localStorage.clear();sessionStorage.clear();
+ if(focus==='navigation-legal'){
+  const menu=()=>doc().getElementById('mobile-menu');
+  const trigger=()=>doc().querySelector('.nav-toggle');
+  const openMenu=async()=>{trigger().click();await until(()=>menu().open,'mobile dialog opens');await pause(260);};
+  const closeMenu=async()=>{menu().querySelector('[aria-label="Close menu"]').click();await until(()=>!menu().open,'mobile dialog closes');};
+  await test('mobile drawer uses 75 percent width with blurred backdrop in both themes',async()=>{
+   await fetch('/__motion?reduce=1');
+   try{
+    for(const theme of ['dark','light']){
+     localStorage.setItem('tinahstore-theme',theme);
+     for(const width of [320,390,480,768,900]){
+      await load('/shop',()=>trigger(),width,844);await openMenu();
+      const win=frame.contentWindow,dialog=menu(),bounds=dialog.getBoundingClientRect();
+      assert(Math.abs(bounds.width-win.innerWidth*.75)<1,'Drawer is not 75 percent at '+width);
+      assert(Math.abs(bounds.left-win.innerWidth*.25)<1&&Math.abs(bounds.right-win.innerWidth)<1,'Drawer is not right-aligned');
+      const backdrop=win.getComputedStyle(dialog,'::backdrop');
+      assert(backdrop.backdropFilter.includes('blur(6px)'),'Backdrop blur missing');
+      assert(doc().body.style.overflow==='hidden','Background scroll is not locked');
+      assert(dialog.scrollWidth<=dialog.clientWidth,'Drawer overflows horizontally');
+      assert(dialog.querySelector('.mobile-menu-header').scrollWidth<=dialog.querySelector('.mobile-menu-header').clientWidth,'Drawer branding crowds close control');
+      for(const link of dialog.querySelectorAll('nav a'))assert(link.getBoundingClientRect().height>=44,'Menu target too short');
+      assert(dialog.querySelector('a[href="/#services"]').textContent.includes('Our Services'),'Services menu link missing');
+      assert(dialog.querySelectorAll('.legal-links a').length===2,'Menu policy links missing');
+      if(processScreenshots&&[320,390].includes(width))await fetch('/__screenshot?name=menu-'+theme+'-'+width+'&width='+width+'&height=900');
+      await closeMenu();assert(doc().body.style.overflow==='','Background scrolling was not restored');
+     }
+    }
+   }finally{await fetch('/__motion?reduce=0');}
+  });
+  await test('mobile menu closes with backdrop and Escape and restores scrolling and focus',async()=>{
+   await load('/shop',()=>trigger(),390,844);trigger().focus();await openMenu();
+   const rect=frame.getBoundingClientRect();
+   await fetch('/__pointer-click?x='+Math.round(rect.left+frame.contentWindow.innerWidth*.125)+'&y='+Math.round(rect.top+240));
+   await until(()=>!menu().open,'blurred backdrop dismisses drawer');
+   assert(doc().body.style.overflow==='','Backdrop close left body locked');
+   await openMenu();await fetch('/__keyboard-escape');await until(()=>!menu().open,'Escape dismisses drawer');
+   assert(doc().body.style.overflow==='','Escape close left body locked');
+   assert(doc().activeElement===trigger(),'Escape did not restore trigger focus');
+  });
+  await test('native mobile dialog keeps keyboard focus inside and closes on desktop resize',async()=>{
+   await load('/shop',()=>trigger(),320,400);trigger().focus();await openMenu();
+   assert(doc().activeElement===menu().querySelector('[aria-label="Close menu"]'),'Initial menu focus is incorrect');
+   for(let index=0;index<16;index++){
+    await fetch('/__keyboard-tab');assert(menu().contains(doc().activeElement),'Tab escaped modal dialog');
+   }
+   frame.width=1024;await until(()=>!menu().open,'desktop resize closes dialog');
+   assert(doc().body.style.overflow==='','Resize left body locked');
+   assert(frame.contentWindow.getComputedStyle(doc().querySelector('.main-nav')).display!=='none','Desktop navigation did not return');
+  });
+  await test('Our Services navigates from shop and repeated home visits below sticky header',async()=>{
+   await fetch('/__motion?reduce=1');
+   try{
+    await load('/shop',()=>trigger(),390,844);await openMenu();menu().querySelector('a[href="/#services"]').click();
+    await until(()=>frame.contentWindow.location.pathname==='/'&&frame.contentWindow.location.hash==='#services'&&doc().querySelector('#services'),'Services route');
+    await until(()=>!menu().open&&Math.abs(doc().querySelector('#services').getBoundingClientRect().top-160)<3,'Services jump after catalogue loading');
+    assert(doc().body.style.overflow==='','Services navigation left body locked');
+    assert(doc().querySelector('#services').getBoundingClientRect().top>=doc().querySelector('.site-header').getBoundingClientRect().bottom,'Services heading obscured by header');
+    await openMenu();assert(menu().querySelector('a[href="/#services"]').getAttribute('aria-current')==='location','Services menu active state missing');await closeMenu();
+    doc().querySelector('.hero').scrollIntoView({behavior:'instant'});await openMenu();menu().querySelector('a[href="/#services"]').click();
+    await until(()=>Math.abs(doc().querySelector('#services').getBoundingClientRect().top-160)<3,'Repeated Services link scroll');
+   }finally{await fetch('/__motion?reduce=0');}
+  });
+  await test('policy links work from menu with active state and accessible page focus',async()=>{
+   await load('/shop',()=>trigger(),390,844);
+   for(const [path,title] of [['/privacy-policy','Privacy Policy'],['/terms-of-service','Terms of Service']]){
+    await openMenu();menu().querySelector('a[href="'+path+'"]').click();
+    await until(()=>frame.contentWindow.location.pathname===path&&doc().querySelector('.legal-page h1')?.textContent===title,'policy route');
+    await until(()=>!menu().open&&doc().activeElement===doc().querySelector('.legal-page h1'),'policy heading receives focus after dialog closes');
+    assert(doc().body.style.overflow==='','Policy navigation left scrolling locked');
+    await openMenu();assert(menu().querySelector('a[href="'+path+'"]').getAttribute('aria-current')==='page','Policy menu active state missing');await closeMenu();
+   }
+  });
+  await test('policy pages load directly and fit mobile and desktop in both themes',async()=>{
+   for(const theme of ['dark','light']){
+    localStorage.setItem('tinahstore-theme',theme);
+    for(const width of [320,390,768,1280]){
+     for(const [path,title] of [['/privacy-policy','Privacy Policy'],['/terms-of-service','Terms of Service']]){
+      await load(path,()=>doc().querySelector('.legal-body'),width,844);
+      assert(doc().querySelectorAll('h1').length===1&&doc().querySelector('h1').textContent===title,'Policy heading missing');
+      assert(doc().documentElement.scrollWidth<=width,'Policy overflows at '+width+' in '+theme);
+      assert(doc().querySelector('.legal-draft').textContent.includes('Draft for business review'),'Policy is not marked for review');
+      assert(doc().querySelector('time').dateTime==='2026-10-28','Wrong policy update date');
+      assert(doc().querySelector('meta[name=robots]')?.content==='noindex,follow','Draft policy is indexed');
+      assert(doc().title.includes(title),'Policy page title missing');
+      if(processScreenshots)await pause(350); // Let the theme transition settle before captures.
+      for(const link of doc().querySelectorAll('.legal-toc a'))assert(doc().getElementById(link.hash.slice(1)),'Broken policy contents link');
+      assert(doc().querySelector('.legal-body a[href="mailto:savannahseedlings@gmail.com"]'),'Policy contact email missing');
+      if(path==='/privacy-policy')for(const text of ['Telegram','WhatsApp','local browser storage','before WhatsApp opens'])assert(doc().querySelector('.legal-body').textContent.includes(text),'Privacy disclosure missing: '+text);
+      else assert(doc().querySelector('.legal-body').textContent.includes('does not impose a blanket no-refund rule'),'Consumer rights preservation missing');
+      if(processScreenshots&&width===390&&path==='/privacy-policy')await fetch('/__screenshot?name=privacy-'+theme+'-390&width=390&height=900');
+     }
+    }
+   }
+  });
+  await test('footer signup and checkout expose policies without changing checkout flow',async()=>{
+   await load('/shop',()=>doc().querySelector('.site-footer .legal-links'),390);
+   assert(doc().querySelectorAll('.site-footer .legal-links a').length===2,'Full footer policy links missing');
+   await load('/signup',()=>doc().querySelector('.policy-form-note'),390);
+   assert(doc().querySelectorAll('.policy-form-note a').length===2,'Signup policy links missing');
+   const product={id:987,slug:'qa-legal-seedling',name:'QA Legal Seedling',price:'350.00',stock:4};
+   localStorage.setItem('ts_cart',JSON.stringify([{productId:product.id,product,quantity:1}]));
+   await load('/checkout',()=>doc().querySelector('.checkout-submit'),390);
+   assert(doc().querySelectorAll('.policy-form-note a').length===2,'Checkout policy notice missing');
+   assert(doc().querySelectorAll('.site-footer .legal-links a').length===2,'Compact footer policy links missing');
+   for(const link of doc().querySelectorAll('.policy-form-note a'))assert(link.target==='_blank'&&link.relList.contains('noopener'),'Policy link discards unsaved form');
+   assert(doc().querySelector('.checkout-submit').textContent.includes('Save order & continue on WhatsApp'),'Checkout action changed');
+   for(const link of doc().querySelectorAll('.site-footer .legal-links a'))assert(link.target==='_blank','Checkout footer policy link loses form state');
+   assert(!doc().querySelector('input[type=checkbox]'),'New mandatory policy acceptance was silently added');
+   localStorage.removeItem('ts_cart');
+  });
+  await test('legal documents retain draft status when printed and do not change shop indexing',async()=>{
+   await load('/terms-of-service',()=>doc().querySelector('.legal-draft'),1280);
+   await fetch('/__print?enabled=1');
+   try{
+    assert(frame.contentWindow.getComputedStyle(doc().querySelector('.site-header')).display==='none','Printed policy includes navigation');
+    assert(frame.contentWindow.getComputedStyle(doc().querySelector('.legal-draft')).display!=='none','Print hides draft status');
+    assert(doc().querySelector('.legal-body').textContent.includes('Contact Savannah Seedlings'),'Print lacks contact details');
+   }finally{await fetch('/__print?enabled=0');}
+   await load('/shop',()=>text().includes('Shop all fruit seedlings'));
+   assert(!doc().querySelector('meta[name=robots][content*="noindex"]'),'Draft indexing policy leaked to shop');
+  });
+ }
  await test('real staff login',async()=>{
   await load('/login',()=>doc().getElementById('admin-username'));await login(originalPassword);
   await until(()=>text().includes('Recent Orders'),'dashboard');
@@ -780,6 +913,22 @@ const server = createServer(async (req, res) => {
       await sendCommand('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
       res.end('OK');return;
     }
+    if(url.pathname==='/__keyboard-escape'){
+      await sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+      await sendCommand('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+      res.end('OK');return;
+    }
+    if(url.pathname==='/__pointer-click'){
+      const x=Number(url.searchParams.get('x')),y=Number(url.searchParams.get('y'));
+      if(!Number.isFinite(x)||!Number.isFinite(y))throw Error('Invalid QA pointer coordinates');
+      await sendCommand('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1});
+      await sendCommand('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});
+      res.end('OK');return;
+    }
+    if(url.pathname==='/__print'){
+      await sendCommand('Emulation.setEmulatedMedia',{media:url.searchParams.get('enabled')==='1'?'print':'screen'});
+      res.end('OK');return;
+    }
     if(url.pathname==='/__motion'){
       await sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:url.searchParams.get('reduce')==='1'?'reduce':'no-preference'}]});
       res.end('OK');return;
@@ -788,7 +937,7 @@ const server = createServer(async (req, res) => {
       const shot=await sendCommand('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,
         clip:{x:8,y:0,width:Number(url.searchParams.get('width')),height:Number(url.searchParams.get('height')),scale:1}});
       const name=url.searchParams.get('name');
-      if(!/^(gallery-(light|dark)|(catalog|stats|services)-(light|dark)-(390|1280))$/.test(name))throw Error('Unknown screenshot');
+      if(!/^(gallery-(light|dark)|(catalog|stats|services)-(light|dark)-(390|1280)|menu-(light|dark)-(320|390)|privacy-(light|dark)-390)$/.test(name))throw Error('Unknown screenshot');
       const filename=path.join(profile,name+'.png');await writeFile(filename,Buffer.from(shot.data,'base64'));
       console.log('QA screenshot: '+filename);res.end('OK');return;
     }

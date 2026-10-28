@@ -7,6 +7,7 @@ export default function SEO({
   image,
   url,
   type = 'website',
+  noIndex = false,
   schemaData
 }) {
   const siteName = 'Savannah Seedlings';
@@ -27,6 +28,7 @@ export default function SEO({
       <title>{fullTitle}</title>
       <meta name="description" content={metaDescription} />
       <meta name="keywords" content={metaKeywords} />
+      {noIndex && <meta name="robots" content="noindex,follow" />}
       <link rel="canonical" href={metaUrl} />
 
       {/* Open Graph / Facebook */}
