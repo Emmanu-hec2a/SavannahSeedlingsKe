@@ -22,7 +22,7 @@ export default function LegalPage({ kind }) {
           <h1 ref={titleRef} tabIndex={-1}>{policy.title}</h1>
           <p className="legal-updated">Last updated <time dateTime={policy.dateTime}>{policy.updated}</time></p>
           <p className="lede">{policy.introduction}</p>
-          <p className="legal-draft"><strong>Draft for business review.</strong> Savannah should confirm these details and obtain appropriate legal review before treating this as a final policy.</p>
+          {/* <p className="legal-draft"><strong>Draft for business review.</strong> Savannah should confirm these details and obtain appropriate legal review before treating this as a final policy.</p> */}
         </header>
         <nav className="legal-toc" aria-label="On this page">
           <h2>On this page</h2>
