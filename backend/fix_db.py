@@ -18,6 +18,6 @@ with connection.cursor() as cursor:
     # Insert default site if empty
     cursor.execute("SELECT COUNT(*) FROM django_site;")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO django_site (id, domain, name) VALUES (1, 'savannahseedlings.co.ke', 'Savannah Seedlings');")
+        cursor.execute("INSERT INTO django_site (id, domain, name) VALUES (1, 'savannahseedlings.com', 'Savannah Seedlings');")
 
 print("Created django_site table successfully.")
