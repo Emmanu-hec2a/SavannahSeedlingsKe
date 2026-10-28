@@ -1,4 +1,6 @@
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
+from rest_framework.exceptions import APIException
 from rest_framework import generics, filters, status
 from rest_framework.response import Response
 from django.utils.decorators import method_decorator
@@ -18,6 +20,29 @@ from django.core.files.base import ContentFile
 
 def visible_products(queryset, user):
     return queryset if user.is_staff else queryset.filter(is_active=True)
+
+
+class InventoryInUse(APIException):
+    status_code = 409
+    default_detail = 'This inventory is used by saved orders and cannot be deleted. Hide the product or update its stock instead.'
+
+
+class ProtectOrderedInventory:
+    def perform_destroy(self, instance):
+        try:
+            with transaction.atomic():
+                if isinstance(instance, Product):
+                    products = Product.objects.filter(pk=instance.pk)
+                else:
+                    Category.objects.select_for_update().get(pk=instance.pk)
+                    products = Product.objects.filter(category=instance)
+                products = list(products.select_for_update().order_by('pk'))
+                if any(product.orderitem_set.exists() for product in products):
+                    raise InventoryInUse()
+                instance.delete()
+        except ProtectedError as exc:
+            raise InventoryInUse() from exc
+
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
@@ -78,7 +103,7 @@ class ProductListView(generics.ListCreateAPIView):
             queryset = queryset.filter(category__slug=category_slug)
         return queryset
 
-class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
+class ProductDetailView(ProtectOrderedInventory, generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [StaffWriteOrReadOnly]
     queryset = Product.objects.all()
     serializer_class = ProductDetailSerializer
@@ -124,7 +149,7 @@ class RelatedProductView(generics.ListAPIView):
             is_active=True
         ).exclude(id=product.id)[:4]
 
-class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+class CategoryDetailView(ProtectOrderedInventory, generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [StaffWriteOrReadOnly]
     queryset = Category.objects.all()
     serializer_class = CategorySerializer

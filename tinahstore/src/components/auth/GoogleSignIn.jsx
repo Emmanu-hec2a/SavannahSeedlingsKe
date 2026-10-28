@@ -1,4 +1,4 @@
-import { Component, createContext, useContext, useState } from 'react';
+import { Component, createContext, useContext, useState, useRef } from 'react';
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 
 const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
@@ -42,25 +42,36 @@ class GoogleErrorBoundary extends Component {
   }
 }
 
-function GoogleLoginAction({ label, onSuccess, onError }) {
+function GoogleLoginAction({ label, onSuccess, onError, disabled = false }) {
+  const [pending, setPending] = useState(false);
+  const inFlight = useRef(false);
+  const fail = error => {
+    inFlight.current = false;
+    setPending(false);
+    onError(error);
+  };
   const login = useGoogleLogin({
     onSuccess: async (response) => {
       try { await onSuccess(response); }
-      catch { onError(); }
+      catch (error) { onError(error); }
+      finally { inFlight.current = false; setPending(false); }
     },
-    onError,
-    onNonOAuthError: onError,
+    onError: fail,
+    onNonOAuthError: fail,
   });
 
   const handleClick = () => {
+    if (disabled || inFlight.current) return;
+    inFlight.current = true;
+    setPending(true);
     try { login(); }
-    catch { onError(); }
+    catch (error) { fail(error); }
   };
 
   return (
     <>
       <div className="google-sign-in-divider" aria-hidden="true"><span>OR</span></div>
-      <button type="button" onClick={handleClick} className="btn btn-outline btn-block" style={{ gap: 12 }}>
+      <button type="button" onClick={handleClick} disabled={disabled || pending} aria-busy={pending} className="btn btn-outline btn-block" style={{ gap: 12 }}>
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" width="18" height="18" />
         {label}
       </button>

@@ -8,10 +8,12 @@ import { formatKes } from '../data/products.js';
 import { useCart } from '../hooks/useCart.js';
 import { api } from '../services/api.js';
 import { checkoutAttempt, clearCheckoutAttempt, saveCheckoutOrder, whatsappOrderUrl } from '../services/orderCheckout.js';
+import { errorMessage } from '../services/apiErrors.js';
 
 export default function Checkout() {
   const [isSubmitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [stockIssues, setStockIssues] = useState([]);
   const submitting = useRef(false);
   const attempt = useRef(null);
   const cart = useCart();
@@ -23,6 +25,7 @@ export default function Checkout() {
     submitting.current = true;
     setSubmitting(true);
     setError('');
+    setStockIssues([]);
     const data = new FormData(event.currentTarget);
     const payload = {
       customer_name: data.get('fullName').trim(),
@@ -49,7 +52,8 @@ export default function Checkout() {
       order = await api.createOrder({ ...payload, checkout_key: attempt.current.key });
     } catch (err) {
       whatsappWindow?.close();
-      setError(err.message || 'Your order could not be saved. Your cart has been kept. Please try again.');
+      setError(errorMessage(err, 'Your order could not be saved. Your cart has been kept. Please try again.'));
+      setStockIssues(Array.isArray(err.data?.stock_issues) ? err.data.stock_issues : []);
       submitting.current = false;
       setSubmitting(false);
       return;
@@ -86,7 +90,13 @@ export default function Checkout() {
         ) : (
           <div className="checkout-layout">
             <form onSubmit={placeOrder} aria-busy={isSubmitting}>
-              {error && <div role="alert" className="checkout-error">{error}</div>}
+              {error && <div role="alert" className="checkout-error">
+                <p>{error}</p>
+                {stockIssues.length > 0 && <ul>{stockIssues.map((issue, index) => (
+                  <li key={`${issue.product_slug}-${index}`}>{issue.product_name}: requested {issue.requested}, available {issue.available}.</li>
+                ))}</ul>}
+                <Link to="/cart">Edit your cart</Link>
+              </div>}
               <fieldset className="checkout-fields" disabled={isSubmitting}>
                 <div className="form-section">
                   <h2 className="h3">Contact details</h2>

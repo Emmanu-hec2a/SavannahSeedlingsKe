@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:auth": "node scripts/check-auth.mjs",
+    "test:errors": "node scripts/check-api-errors.mjs",
     "test:motion": "node scripts/check-scroll-reveals.mjs",
     "test:stats": "node scripts/check-count-up.mjs",
     "test:services": "node scripts/check-services.mjs",

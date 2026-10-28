@@ -1,6 +1,6 @@
 // Production-build browser checks. All Google/auth/API calls use local fixtures.
 import { createServer } from 'node:http';
-import { readFile, mkdtemp } from 'node:fs/promises';
+import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -98,12 +98,13 @@ async function test(name,fn){try{await fn();results.push({name,pass:true});}catc
   await test('email signup works without Google',async()=>{
     await load('email-signup','/signup','missing');
     await fillForm(['grower@example.test','Mock-Password-42!','Mock-Password-42!']);
-    await until(()=>frame.contentWindow.location.pathname==='/account'&&text().includes('Welcome back'),'signup return to account');
+    await until(()=>frame.contentWindow.location.pathname==='/account'&&text().includes('Seedling Order History'),'signup signed-in account');
+    assert(localStorage.getItem('ts_auth_token')==='mock-token','signup token was not stored');
   });
   await test('incorrect email credentials show error without blanking',async()=>{
     await load('email-invalid','/account','missing');
     await fillForm(['grower@example.test','Mock-Password-42!']);
-    await until(()=>text().includes('Invalid email or password'),'login error');
+    await until(()=>text().includes('Invalid credentials'),'login error');
     assert(doc().querySelector('.account-card input[type=password]'),'form unmounted');
   });
   await test('saved customer session restores without Google',async()=>{
@@ -132,6 +133,51 @@ async function test(name,fn){try{await fn();results.push({name,pass:true});}catc
     await load('google-login');await until(()=>googleButton(),'Google button');googleButton().click();
     await until(()=>text().includes('Seedling Order History')&&text().includes('qa-grower'),'Google account');
   });
+  await test('Google signup signs in and opens account',async()=>{
+    await load('google-signup','/signup');await until(()=>googleButton(),'Google button');googleButton().click();
+    await until(()=>frame.contentWindow.location.pathname==='/account'&&text().includes('Seedling Order History'),'Google signup account');
+    assert(localStorage.getItem('ts_auth_token')==='mock-token','Google signup token was not stored');
+  });
+  await test('signup validation is readable and keeps form values',async()=>{
+    await load('signup-invalid','/signup','missing');
+    await fillForm(['grower@example.test','Mock-Password-42!','Mock-Password-42!']);
+    await until(()=>text().includes('Please sign in instead'),'registration validation');
+    const alert=doc().querySelector('[role=alert]');
+    assert(alert&&!alert.textContent.includes('{')&&!alert.textContent.includes('['),'Raw JSON validation');
+    assert(doc().querySelector('input[type=email]').value==='grower@example.test','Email was cleared');
+    assert(doc().querySelector('input[type=password]').value==='Mock-Password-42!','Password was cleared');
+    assert(!localStorage.getItem('ts_auth_token'),'Failed signup stored a token');
+  });
+  await test('missing application token never signs customer in',async()=>{
+    await load('token-missing','/signup','missing');
+    await fillForm(['grower@example.test','Mock-Password-42!','Mock-Password-42!']);
+    await until(()=>doc().querySelector('[role=alert]'),'missing token error');
+    assert(!localStorage.getItem('ts_auth_token'),'Malformed response stored an undefined token');
+    assert(frame.contentWindow.location.pathname==='/signup','Malformed response navigated away');
+  });
+  await test('profile failure does not accept a partial session',async()=>{
+    await load('profile-fails','/signup','missing');
+    await fillForm(['grower@example.test','Mock-Password-42!','Mock-Password-42!']);
+    await until(()=>doc().querySelector('[role=alert]'),'profile failure');
+    assert(!localStorage.getItem('ts_auth_token'),'Profile failure retained a partial session');
+    assert(doc().querySelector('input[type=email]').value==='grower@example.test','Profile failure cleared form');
+  });
+  await test('pending signup disables duplicate submission',async()=>{
+    await load('signup-pending','/signup','missing');
+    await fillForm(['grower@example.test','Mock-Password-42!','Mock-Password-42!']);
+    await until(()=>doc().querySelector('button[type=submit]')?.disabled,'pending signup');
+    doc().querySelector('form').requestSubmit();
+    await until(()=>text().includes('Seedling Order History'),'pending signup completes');
+    const response=await fetch('/__requests?scenario=signup-pending');
+    const rows=await response.json();
+    assert(rows.filter(row=>row.path.endsWith('/auth/registration/')).length===1,'Duplicate signup request');
+  });
+  await test('Google backend validation stays readable',async()=>{
+    await load('google-duplicate','/signup');await until(()=>googleButton(),'Google button');googleButton().click();
+    await until(()=>text().includes('Please sign in instead'),'Google backend error');
+    assert(!doc().querySelector('[role=alert]').textContent.includes('{'),'Google error is raw JSON');
+    assert(!localStorage.getItem('ts_auth_token'),'Failed Google signup stored a token');
+  });
   await test('Google popup errors remain inline',async()=>{
     await load('popup-error');await until(()=>googleButton(),'Google button');googleButton().click();
     await until(()=>text().includes('Google sign-in failed'),'popup error');
@@ -158,6 +204,7 @@ const server = createServer(async (req,res) => {
     const scenario=url.searchParams.get('scenario')||'';
     let content,type='text/html',status=200;
     if(url.pathname==='/__checks')content=page;
+    else if(url.pathname==='/__requests'){type='application/json';content=JSON.stringify(requests.filter(row=>row.scenario===scenario));}
     else if(url.pathname==='/__google'){
       type='application/javascript';
       if(scenario.startsWith('blocked-')){status=503;content='';}
@@ -176,11 +223,16 @@ const server = createServer(async (req,res) => {
       const data=body?JSON.parse(body):null;
       requests.push({path:url.pathname,method:req.method,scenario,data});
       type='application/json';
-      if(url.pathname.endsWith('/auth/user/'))content={username:'qa-grower',email:'grower@example.test'};
+      if(url.pathname.endsWith('/auth/user/')&&scenario==='profile-fails'){status=503;content={detail:'QA service failure'};}
+      else if(url.pathname.endsWith('/auth/user/'))content={username:'qa-grower',email:'grower@example.test'};
       else if(url.pathname.endsWith('/auth/login/')&&scenario==='email-invalid'){status=400;content={non_field_errors:['Invalid credentials']};}
+      else if(url.pathname.endsWith('/auth/registration/')&&scenario==='signup-invalid'){status=400;content={email:['An account with this email already exists. Please sign in instead.']};}
+      else if(url.pathname.endsWith('/auth/google/')&&scenario==='google-duplicate'){status=400;content={non_field_errors:['An account with this email already exists. Please sign in instead.']};}
+      else if(url.pathname.endsWith('/auth/registration/')&&scenario==='token-missing')content={};
       else if(/\/auth\/(login|google|registration)\/$/.test(url.pathname))content={key:'mock-token'};
       else content={results:[],count:0};
       content=JSON.stringify(content);
+      if(url.pathname.endsWith('/auth/registration/')&&scenario==='signup-pending')await new Promise(resolve=>setTimeout(resolve,300));
     } else if(url.pathname.startsWith('/assets/')){
       const name=url.pathname.slice(1);content=files.get(name);
       if(content===undefined){res.writeHead(404).end();return;}
@@ -207,4 +259,10 @@ try {
   const googleExchange=requests.some(r=>r.path.endsWith('/auth/google/')&&r.data.access_token==='mock-google-access'&&!r.data.id_token);
   console.log(JSON.stringify({googleAccessTokenExchangeVerified:googleExchange}));
   if(report.results.some(r=>!r.pass)||report.errors.length||report.emptyClientInitializations||!googleExchange)process.exitCode=1;
-} finally {server.closeAllConnections();server.close();}
+} finally {
+  server.closeAllConnections();server.close();
+  if(path.dirname(profile)===path.resolve(tmpdir())&&path.basename(profile).startsWith('seedlings-auth-qa-')) {
+    try {await rm(profile,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
+    catch {console.warn('Disposable Chrome profile could not be removed: '+profile);}
+  }
+}

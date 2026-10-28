@@ -3,7 +3,6 @@ import string
 import uuid
 from decimal import Decimal
 from django.db import models
-from django.db.models import F
 from django.conf import settings
 from products.models import Product, ProductVariant
 
@@ -84,29 +83,12 @@ class Order(models.Model):
         return self.delivery_fee is not None
 
     def reduce_stock(self):
-        """
-        Decrements stock for each item in the order.
-        Called during order creation.
-        """
-        for item in self.items.all():
-            if item.variant:
-                if item.variant.stock >= item.quantity:
-                    item.variant.stock -= item.quantity
-                    item.variant.save()
-            else:
-                if item.product.stock >= item.quantity:
-                    item.product.stock -= item.quantity
-                    item.product.save()
+        from .inventory import reserve_stock
+        reserve_stock(self)
 
     def restock(self):
-        """
-        Adds stock back to products/variants if an order is cancelled.
-        """
-        for item in self.items.all():
-            if item.variant:
-                ProductVariant.objects.filter(pk=item.variant_id).update(stock=F('stock') + item.quantity)
-            else:
-                Product.objects.filter(pk=item.product_id).update(stock=F('stock') + item.quantity)
+        from .inventory import release_stock
+        release_stock(self)
 
     @property
     def is_fully_reviewed(self):
@@ -125,6 +107,19 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
+
+
+class OrderStockAllocation(models.Model):
+    """Inventory source for new orders; a null variant means legacy product stock."""
+    item = models.ForeignKey(OrderItem, related_name='stock_allocations', on_delete=models.CASCADE)
+    variant = models.ForeignKey(ProductVariant, related_name='stock_allocations',
+                                on_delete=models.PROTECT, null=True, blank=True)
+    quantity = models.PositiveIntegerField()
+    released_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(check=models.Q(quantity__gt=0),
+                                              name='order_allocation_quantity_positive')]
 
 
 class DeliverySetting(models.Model):

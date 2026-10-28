@@ -8,6 +8,7 @@ import warnings
 
 from django.core.files.base import ContentFile
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Q
 from django.utils.text import slugify
 from PIL import Image
 from rest_framework import serializers
@@ -64,7 +65,7 @@ def validate_batches(data, product=None):
     if not set(ids).issubset({batch.pk for batch in existing}):
         raise serializers.ValidationError({'variants_json': 'A stock batch does not belong to this product.'})
     removed = product.variants.exclude(pk__in=ids)
-    if removed.filter(orderitem__isnull=False).exists():
+    if removed.filter(Q(orderitem__isnull=False) | Q(stock_allocations__isnull=False)).exists():
         raise serializers.ValidationError({
             'variants_json': 'A batch used by an order cannot be removed. Keep its ID and update it instead.',
         })

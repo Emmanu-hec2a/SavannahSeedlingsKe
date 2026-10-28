@@ -1,5 +1,6 @@
 import { API_BASE_URL } from './apiBase.js';
 import { collectPages } from './pagination.js';
+import { ApiError } from './apiErrors.js';
 
 async function request(path, options = {}) {
   const token = localStorage.getItem('ts_auth_token');
@@ -18,14 +19,13 @@ async function request(path, options = {}) {
   });
 
   if (!response.ok) {
-    let message = `Request failed with ${response.status}`;
+    let errorData = null;
     try {
-      const errorData = await response.json();
-      message = errorData.detail || errorData.error || JSON.stringify(errorData);
+      errorData = await response.json();
     } catch (e) {
       // Not JSON
     }
-    throw new Error(message);
+    throw new ApiError(response.status, errorData);
   }
 
   if (response.status === 204) return null;

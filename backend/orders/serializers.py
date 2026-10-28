@@ -36,7 +36,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     product_slug = serializers.SlugRelatedField(slug_field='slug', queryset=Product.objects.filter(is_active=True), source='product')
     product_name = serializers.CharField(source='product.name', read_only=True)
     variant_id = serializers.PrimaryKeyRelatedField(queryset=ProductVariant.objects.all(), source='variant', required=False, allow_null=True)
-    quantity = serializers.IntegerField(min_value=1)
+    quantity = serializers.IntegerField(min_value=1, max_value=2147483647)
     primary_image = serializers.SerializerMethodField()
 
     class Meta:
@@ -148,18 +148,15 @@ class OrderSerializer(serializers.ModelSerializer):
         if existing:
             return existing
         products = {p.pk: p for p in Product.objects.select_for_update().filter(pk__in=[i['product'].pk for i in items_data]).order_by('pk')}
-        variants = {v.pk: v for v in ProductVariant.objects.select_for_update().filter(pk__in=[i['variant'].pk for i in items_data if i.get('variant')]).order_by('pk')}
         existing = self.existing_checkout(validated_data, items_data)
         if existing:
             return existing
         subtotal = Decimal('0.00')
         for item in items_data:
             product = products.get(item['product'].pk)
-            variant = variants.get(item['variant'].pk) if item.get('variant') else None
-            stock = variant.stock if variant else product.stock if product else 0
-            if not product or not product.is_active or stock < item['quantity']:
+            if not product:
                 raise serializers.ValidationError({'items': 'One or more seedlings are no longer available in the requested quantity. Please update your cart.'})
-            item.update(product=product, variant=variant, unit_price=product.price)
+            item.update(product=product, unit_price=product.price)
             subtotal += product.price * item['quantity']
         if subtotal > Decimal('99999999.99'):
             raise serializers.ValidationError({'items': 'Please contact the nursery directly for an order of this size.'})

@@ -1,22 +1,22 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import GoogleSignIn from '../components/auth/GoogleSignIn.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import Icon from '../components/icons/Icon.jsx';
-
-import { API_BASE_URL as API_URL } from '../services/apiBase.js';
+import { errorMessage } from '../services/apiErrors.js';
 
 export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const { googleLogin } = useAuth();
+  const { register, googleLogin, authenticating } = useAuth();
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
     e.preventDefault();
+    if (authenticating) return;
+    setError('');
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -24,19 +24,10 @@ export default function Signup() {
     }
 
     try {
-      await axios.post(`${API_URL}/auth/registration/`, {
-        email,
-        password1: password,
-        password2: confirmPassword,
-      });
-
+      await register(email, password, confirmPassword);
       navigate('/account');
     } catch (err) {
-      setError(
-        err.response?.data
-          ? JSON.stringify(err.response.data)
-          : 'Registration failed. Please try again.'
-      );
+      setError(errorMessage(err, 'Registration could not be completed. Please try again, or sign in if you already created an account.'));
     }
   };
 
@@ -57,9 +48,9 @@ export default function Signup() {
 
       <div className="container" style={{ paddingBottom: 90 }}>
         <div className="account-layout">
-          <form className="account-card" onSubmit={handleSignup}>
+          <form className="account-card" onSubmit={handleSignup} aria-busy={authenticating}>
             <h3>Get started</h3>
-            {error && <p className="error-text" style={{ color: 'var(--oxblood)', fontSize: 14, marginBottom: 15 }}>{error}</p>}
+            {error && <p role="alert" className="error-text" style={{ color: 'var(--oxblood)', fontSize: 14, marginBottom: 15 }}>{error}</p>}
             <div className="form-field">
               <label>Email address</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="farmer@email.com" required />
@@ -72,16 +63,17 @@ export default function Signup() {
               <label>Confirm Password</label>
               <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm your password" required />
             </div>
-            <button className="btn btn-primary btn-block" type="submit">Create account</button>
+            <button className="btn btn-primary btn-block" type="submit" disabled={authenticating}>{authenticating ? 'Signing you in…' : 'Create account'}</button>
             <p className="policy-form-note">Read our <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</Link> and <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link> before continuing.</p>
 
             <GoogleSignIn
               label="Sign up with Google"
+              disabled={authenticating}
               onSuccess={async (response) => {
                 await googleLogin(response.access_token);
-                navigate('/');
+                navigate('/account');
               }}
-              onError={() => setError('Google sign-in failed. Please try again or use your email and password.')}
+              onError={err => setError(errorMessage(err, 'Google sign-in failed. Please try again or use your email and password.'))}
             />
 
             <div style={{ marginTop: 24, textAlign: 'center' }}>

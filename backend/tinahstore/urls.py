@@ -3,7 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from core.views_admin import admin_dashboard_stats, get_me, change_password
-from core.views_auth import GoogleLogin
+from core.views_auth import CustomerRegisterView, GoogleLogin
 from core.views_admin_auth import AdminLoginView, AdminSessionView, AdminLogoutView, AdminPasswordView
 from rest_framework.authtoken.views import obtain_auth_token
 from rest_framework.routers import SimpleRouter
@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/v1/auth/change-password/', change_password, name='change_password'),
     path('api/v1/auth/google/', GoogleLogin.as_view(), name='google_login'),
     path('api/v1/auth/', include('dj_rest_auth.urls')),
+    path('api/v1/auth/registration/', CustomerRegisterView.as_view(), name='rest_register'),
     path('api/v1/auth/registration/', include('dj_rest_auth.registration.urls')),
     path('api/v1/admin/dashboard/', admin_dashboard_stats, name='admin_dashboard'),
     path('api/v1/', include([

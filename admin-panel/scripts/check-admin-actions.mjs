@@ -1,7 +1,7 @@
 // Real-API browser verification. Invoked by Django's disposable LiveServerTestCase.
 // Never point this harness at a deployed backend or use real account credentials.
 import {createServer, request as httpRequest} from 'node:http';
-import {readFile, mkdtemp, writeFile} from 'node:fs/promises';
+import {readFile, mkdtemp, writeFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -10,7 +10,7 @@ import {homeStats, homeStatsNotice} from '../../tinahstore/src/data/homeStats.js
 
 const backend = new URL(process.argv[2]);
 const focus = process.env.ADMIN_ACTIONS_FOCUS || 'all';
-if (!['all', 'catalog-delivery', 'nursery-motion', 'catalog-sync', 'navigation-legal'].includes(focus)) throw Error('Unknown admin-action test focus');
+if (!['all', 'catalog-delivery', 'nursery-motion', 'catalog-sync', 'navigation-legal', 'checkout-signup'].includes(focus)) throw Error('Unknown admin-action test focus');
 if (process.env.RUN_ADMIN_BROWSER_TESTS !== '1' || backend.protocol !== 'http:' ||
     !['localhost', '127.0.0.1'].includes(backend.hostname) || !backend.port) {
   throw Error('Only the opted-in disposable local Django test server is allowed.');
@@ -19,6 +19,7 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const adminRoot = path.join(root, 'admin-panel/dist');
 const storeRoot = path.join(root, 'tinahstore/dist');
 const injection = `<script>
+if(parent.checkoutQa)window.open=()=>({opener:null,closed:false,close(){this.closed=true;parent.closedHandoffs++;},location:{replace(url){parent.handoffs.push(url);}}});
 if(parent.disableObserver)delete window.IntersectionObserver;
 window.addEventListener('error',e=>parent.errors.push(e.message));
 window.addEventListener('unhandledrejection',e=>parent.errors.push(String(e.reason)));
@@ -49,6 +50,7 @@ Node.prototype.appendChild=function(child){
 
 const page = `<!doctype html><pre id="results">Running</pre><script>
 window.errors=[];window.requests=[];const results=[];let frame;
+window.checkoutQa=${focus === 'checkout-signup'};window.handoffs=[];window.closedHandoffs=0;
 const focus=${JSON.stringify(focus)};
 const expectedStats=${JSON.stringify(homeStats)};
 const expectedStatsNotice=${JSON.stringify(homeStatsNotice)};
@@ -153,6 +155,101 @@ async function passwordForm(old,next,confirm=next){
 }
 (async()=>{
  localStorage.clear();sessionStorage.clear();
+ if(focus==='checkout-signup'){
+  const password='Orchard-42!Verification-Leaf9';
+  async function signup(email){
+   await load('/signup',()=>doc().querySelector('input[type=email]'),390,844);
+   const inputs=doc().querySelectorAll('.account-card input');
+   [email,password,password].forEach((value,index)=>set(inputs[index],value));
+   await submit(doc().querySelector('form'));
+  }
+  await test('real email signup signs customer in and opens account',async()=>{
+   await signup('qa-customer-one@example.test');
+   await until(()=>text().includes('Seedling Order History'),'signed-in customer account');
+   assert(frame.contentWindow.location.pathname==='/account','Signup did not open account');
+   assert(localStorage.getItem('ts_auth_token'),'Application token missing after signup');
+  });
+  await test('real customer session survives page reload',async()=>{
+   await load('/account',()=>text().includes('Seedling Order History'),390,844);
+   assert(text().includes('qa-customer-one'),'Reloaded account is not the created customer');
+  });
+  await test('second real email signup also succeeds',async()=>{
+   button('Sign out').click();await pause(60);
+   await signup('qa-customer-two@example.test');
+   await until(()=>text().includes('Seedling Order History')||doc().querySelector('[role=alert]'),'second customer signup');
+   assert(!doc().querySelector('[role=alert]'),'Second signup failed: '+doc().querySelector('[role=alert]')?.textContent);
+   assert(text().includes('qa-customer-two'),'Second customer profile incorrect');
+  });
+  await test('real duplicate signup is readable and preserves entered values',async()=>{
+   if(button('Sign out'))button('Sign out').click();await pause(60);
+   await signup('QA-CUSTOMER-TWO@EXAMPLE.TEST');
+   await until(()=>doc().querySelector('[role=alert]'),'duplicate signup error');
+   const alert=doc().querySelector('[role=alert]').textContent;
+   assert(alert.includes('sign in')&&!alert.includes('{'),'Duplicate email message is not readable');
+   assert(doc().querySelector('input[type=email]').value==='QA-CUSTOMER-TWO@EXAMPLE.TEST','Email was cleared');
+   assert(doc().querySelector('input[type=password]').value===password,'Password was cleared');
+   assert(!localStorage.getItem('ts_auth_token'),'Failed signup stored token');
+  });
+  let product,orderNumber;
+  await test('admin-created batch stock is accepted by real WhatsApp checkout',async()=>{
+   const login=await fetch('/api/v1/admin/auth/login/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'qa-actions-staff',password:originalPassword})});
+   assert(login.status===200,'QA staff login failed');sessionStorage.setItem('ts_admin_token',(await login.json()).token);
+   const categories=await api('/categories/'),category=(categories.data.results||categories.data)[0];
+   const created=await api('/products/','POST',{name:'QA Checkout Seedling',slug:'qa-checkout-seedling',category_id:category.id,price:'350.00',description:'Disposable checkout test',variants_json:[{stock:5},{stock:6}]});
+   assert(created.status===201,'QA batch product creation failed');
+   product=(await api('/products/qa-checkout-seedling/')).data;
+   assert(product.stock===11&&product.variants.length===2,'Public stock total incorrect');
+   localStorage.setItem('ts_cart',JSON.stringify([{productId:product.id,product,quantity:8}]));
+   await load('/checkout',()=>doc().querySelector('.checkout-submit'),390,844);
+   const contact={fullName:'QA Grower',email:'checkout@example.test',phone:'0712345678',county:'Kiambu',city:'Ruiru',address:'QA Farm near market'};
+   Object.entries(contact).forEach(([name,value])=>set(doc().querySelector('[name='+name+']'),value));
+   await submit(doc().querySelector('form'));
+   await until(()=>frame.contentWindow.location.pathname==='/confirmation','saved checkout confirmation');
+   orderNumber=new URL(frame.contentWindow.location.href).searchParams.get('order');
+   const saved=await api('/orders/'+orderNumber+'/');
+   assert(saved.data.items.length===1&&saved.data.items[0].quantity===8,'Stock allocation split customer receipt lines');
+   assert(saved.data.status==='pending_confirmation'&&saved.data.delivery_fee===null&&!saved.data.deposit_paid,'WhatsApp order terms changed');
+   assert(JSON.parse(localStorage.getItem('ts_cart')).length===0,'Saved checkout did not clear cart');
+   assert(handoffs.length===1&&handoffs[0].startsWith('https://wa.me/'),'Prepared WhatsApp handoff missing');
+   assert((await api('/products/qa-checkout-seedling/')).data.stock===3,'Stock was not deducted from batches');
+  });
+  await test('real stock shortage identifies seedling and retains cart and delivery form',async()=>{
+   localStorage.setItem('ts_cart',JSON.stringify([{productId:product.id,product,quantity:4}]));
+   await load('/checkout',()=>doc().querySelector('.checkout-submit'),390,844);
+   const contact={fullName:'QA Retained Grower',email:'retry@example.test',phone:'0712345678',county:'Kiambu',city:'Ruiru',address:'QA Retained Farm'};
+   Object.entries(contact).forEach(([name,value])=>set(doc().querySelector('[name='+name+']'),value));
+   await submit(doc().querySelector('form'));
+   await until(()=>doc().querySelector('[role=alert]'),'stock shortage');
+   const alert=doc().querySelector('[role=alert]');
+   assert(alert.textContent.includes('QA Checkout Seedling: requested 4, available 3.'),'Per-seedling shortage details missing');
+   assert(!alert.textContent.includes('{')&&alert.querySelector('a').getAttribute('href')==='/cart','Raw JSON or edit-cart action missing');
+   assert(doc().querySelector('[name=fullName]').value==='QA Retained Grower'&&doc().querySelector('[name=address]').value==='QA Retained Farm','Delivery fields were cleared');
+   assert(JSON.parse(localStorage.getItem('ts_cart'))[0].quantity===4,'Failed checkout changed the cart');
+   assert(handoffs.length===1&&closedHandoffs===1,'Failed checkout attempted WhatsApp handoff');
+   for(const width of [320,390,768,1280]){
+    frame.width=width;await pause(50);assert(doc().documentElement.scrollWidth<=doc().documentElement.clientWidth+1,'Checkout error overflows at '+width);
+   }
+   frame.width=390;
+  });
+  await test('checkout retry succeeds after admin replenishes stock without re-entering details',async()=>{
+   const fresh=(await api('/products/qa-checkout-seedling/')).data;
+   const updated=await api('/products/qa-checkout-seedling/','PATCH',{variants_json:JSON.stringify(fresh.variants.map((batch,index)=>({...batch,stock:index===0?4:3})))});
+   assert(updated.status===200,'Stock replenishment failed');
+   await submit(doc().querySelector('form'));
+   await until(()=>frame.contentWindow.location.pathname==='/confirmation','retried checkout confirmation');
+   const number=new URL(frame.contentWindow.location.href).searchParams.get('order');
+   assert(number!==orderNumber,'New checkout reused an existing saved order');
+   const saved=await api('/orders/'+number+'/');
+   assert(saved.data.customer_name==='QA Retained Grower'&&saved.data.delivery_address==='QA Retained Farm','Retried details were not retained');
+   assert(handoffs.length===2,'Successful retry did not prepare WhatsApp handoff');
+   assert((await api('/products/qa-checkout-seedling/')).data.stock===3,'Retried order stock incorrect');
+   await api('/orders/'+number+'/','PATCH',{status:'cancelled'});
+   await api('/orders/'+number+'/','PATCH',{status:'cancelled'});
+   assert((await api('/products/qa-checkout-seedling/')).data.stock===7,'Cancellation did not restore exact stock once');
+  });
+  document.getElementById('results').textContent=JSON.stringify({focus,results,errors,failedRequests:requests.filter(row=>row.status>=400)});
+  if(frame)frame.remove();return;
+ }
  if(focus==='navigation-legal'){
   const menu=()=>doc().getElementById('mobile-menu');
   const trigger=()=>doc().querySelector('.nav-toggle');
@@ -1037,6 +1134,11 @@ try {
   socket?.close();chrome.kill();
   for(const upstream of upstreams)upstream.destroy();
   server.closeAllConnections();server.close();
+  // Remove only this run's owned profile; keep explicitly requested screenshots.
+  if(process.env.NURSERY_QA_SCREENSHOTS!=='1'&&path.dirname(profile)===path.resolve(tmpdir())&&path.basename(profile).startsWith('seedlings-real-api-qa-')){
+    try{await rm(profile,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
+    catch{console.warn('Disposable Chrome profile could not be removed: '+profile);}
+  }
   // Some Chrome/HTTP handles on Windows can outlive their closed socket. The CLI
   // has already printed its result; don't leave a test helper process behind.
   setTimeout(()=>process.exit(process.exitCode||0),1500).unref();

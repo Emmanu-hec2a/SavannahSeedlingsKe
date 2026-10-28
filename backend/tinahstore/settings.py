@@ -270,7 +270,8 @@ SITE_ID = 1
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
-ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+# Keep email-only forms, but generate the unique username required by auth.User.
+ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'
 
 GOOGLE_OAUTH_CLIENT_ID     = env('GOOGLE_OAUTH_CLIENT_ID',     default='')
 GOOGLE_OAUTH_CLIENT_SECRET = env('GOOGLE_OAUTH_CLIENT_SECRET', default='')
@@ -297,7 +298,8 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
-SOCIALACCOUNT_STORE_TOKENS = True
+# We only need our application token, not persistent access to Google services.
+SOCIALACCOUNT_STORE_TOKENS = False
 SOCIALACCOUNT_AUTO_SIGNUP = True       # ← auto-create account on first Google login
 SOCIALACCOUNT_EMAIL_REQUIRED = False   # ← don't block on missing email
 

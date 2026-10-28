@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import GoogleSignIn from '../components/auth/GoogleSignIn.jsx';
 import { api } from '../services/api.js';
 import { formatKes } from '../data/products.js';
+import { errorMessage } from '../services/apiErrors.js';
 
 export default function Account() {
   const [email, setEmail] = useState('');
@@ -12,7 +13,7 @@ export default function Account() {
   const [error, setError] = useState('');
   const [orders, setOrders] = useState([]);
   const [isLoadingOrders, setLoadingOrders] = useState(false);
-  const { login, googleLogin, user, logout } = useAuth();
+  const { login, googleLogin, user, logout, authenticating } = useAuth();
 
   useEffect(() => {
     if (user) {
@@ -34,10 +35,12 @@ export default function Account() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (authenticating) return;
+    setError('');
     try {
       await login(email, password);
     } catch (err) {
-      setError('Invalid email or password');
+      setError(errorMessage(err, 'Invalid email or password. Please try again.'));
     }
   };
 
@@ -144,9 +147,9 @@ export default function Account() {
 
       <div className="container" style={{ paddingBottom: 90 }}>
         <div className="account-layout">
-          <form className="account-card" onSubmit={handleLogin}>
+          <form className="account-card" onSubmit={handleLogin} aria-busy={authenticating}>
             <h3>Welcome back</h3>
-            {error && <p className="error-text" style={{ color: 'var(--oxblood)', fontSize: 14, marginBottom: 15 }}>{error}</p>}
+            {error && <p role="alert" className="error-text" style={{ color: 'var(--oxblood)', fontSize: 14, marginBottom: 15 }}>{error}</p>}
             <div className="form-field">
               <label>Email address</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="farmer@email.com" required />
@@ -155,12 +158,13 @@ export default function Account() {
               <label>Password</label>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" required />
             </div>
-            <button className="btn btn-primary btn-block" type="submit">Sign in</button>
+            <button className="btn btn-primary btn-block" type="submit" disabled={authenticating}>{authenticating ? 'Signing in…' : 'Sign in'}</button>
 
             <GoogleSignIn
               label="Continue with Google"
+              disabled={authenticating}
               onSuccess={(response) => googleLogin(response.access_token)}
-              onError={() => setError('Google sign-in failed. Please try again or use your email and password.')}
+              onError={err => setError(errorMessage(err, 'Google sign-in failed. Please try again or use your email and password.'))}
             />
 
             <div style={{ marginTop: 24, textAlign: 'center' }}>
