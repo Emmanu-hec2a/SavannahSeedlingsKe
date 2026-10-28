@@ -15,7 +15,7 @@ export default function SavannahLogo({ className = "", showTagline = false }) {
         </span>
         {showTagline && (
           <span className="brand-tagline">
-            Seeding Kenya for sustainable fruit farming
+            Seeding Africa for sustainable fruit farming
           </span>
         )}
       </div>
