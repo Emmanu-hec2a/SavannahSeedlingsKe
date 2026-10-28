@@ -13,8 +13,8 @@ export default function SEO({
   const siteName = 'Savannah Seedlings';
   const defaultDescription = 'Seeding Africa for Sustainable fruit farming. Premium certified grafted fruit seedlings in Kenya including Hass Avocado, Pixie Orange, Kent Mango & Yellow Passion.';
   const defaultKeywords = 'grafted seedlings Kenya, Hass Avocado seedlings, Pixie Orange seedlings, fruit seedlings Nairobi, Muranga nursery, Savannah Seedlings';
-  const defaultImage = 'https://savannahseedlings.co.ke/og-image.png';
-  const siteUrl = 'https://savannahseedlings.co.ke';
+  const defaultImage = 'https://savannahseedlings.com/og-image.png';
+  const siteUrl = 'https://savannahseedlings.com';
 
   const fullTitle = title ? `${title} | ${siteName}` : `Savannah Seedlings | Seeding Africa for Sustainable fruit farming`;
   const metaDescription = description || defaultDescription;

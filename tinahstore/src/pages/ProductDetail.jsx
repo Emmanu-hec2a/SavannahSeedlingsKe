@@ -61,7 +61,7 @@ export default function ProductDetail() {
     "@context": "https://schema.org",
     "@type": "Product",
     "name": product.name,
-    "image": product.primary_image || "https://savannahseedlings.co.ke/og-image.png",
+    "image": product.primary_image || "https://savannahseedlings.com/og-image.png",
     "description": product.description,
     "sku": product.id.toString(),
     "brand": {
@@ -70,7 +70,7 @@ export default function ProductDetail() {
     },
     "offers": {
       "@type": "Offer",
-      "url": `https://savannahseedlings.co.ke/product/${slug}`,
+      "url": `https://savannahseedlings.com/product/${slug}`,
       "priceCurrency": "KES",
       "price": product.price,
       "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
@@ -91,19 +91,19 @@ export default function ProductDetail() {
         "@type": "ListItem",
         "position": 1,
         "name": "Home",
-        "item": "https://savannahseedlings.co.ke/"
+        "item": "https://savannahseedlings.com/"
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Shop",
-        "item": "https://savannahseedlings.co.ke/shop"
+        "item": "https://savannahseedlings.com/shop"
       },
       {
         "@type": "ListItem",
         "position": 3,
         "name": product.name,
-        "item": `https://savannahseedlings.co.ke/product/${slug}`
+        "item": `https://savannahseedlings.com/product/${slug}`
       }
     ]
   };

@@ -42,10 +42,10 @@ export default function Home() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "Savannah Seedlings",
-    "url": "https://savannahseedlings.co.ke",
+    "url": "https://savannahseedlings.com",
     "potentialAction": {
       "@type": "SearchAction",
-      "target": "https://savannahseedlings.co.ke/shop?search={search_term_string}",
+      "target": "https://savannahseedlings.com/shop?search={search_term_string}",
       "query-input": "required name=search_term_string"
     }
   };
@@ -54,8 +54,8 @@ export default function Home() {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "Savannah Seedlings",
-    "url": "https://savannahseedlings.co.ke",
-    "logo": "https://savannahseedlings.co.ke/favicon.png",
+    "url": "https://savannahseedlings.com",
+    "logo": "https://savannahseedlings.com/favicon.png",
     "contactPoint": {
       "@type": "ContactPoint",
       "telephone": "+254-710-583-989",
