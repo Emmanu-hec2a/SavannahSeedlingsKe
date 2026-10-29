@@ -1,19 +1,19 @@
 {
-  "short_name": "SavannahSeedlings",
-  "name": "SavannahSeedlings - Seeding Africa for Sustainable fruit farming",
+  "short_name": "Savannah Seedlings",
+  "name": "Savannah Seedlings - Seeding Africa for Sustainable fruit farming",
   "icons": [
     {
       "src": "favicon.png",
-      "sizes": "64x64 32x32 24x24 16x16",
+      "sizes": "96x96",
       "type": "image/png"
     },
     {
-      "src": "favicon.png",
+      "src": "/icon-192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "favicon.png",
+      "src": "/icon-512.png",
       "type": "image/png",
       "sizes": "512x512"
     }

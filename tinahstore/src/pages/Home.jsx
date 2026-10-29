@@ -38,36 +38,9 @@ export default function Home() {
     return () => window.cancelAnimationFrame(frame);
   }, [hash, locationKey, isLoading, categoriesLoading]);
 
-  const homeSchema = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "Savannah Seedlings",
-    "url": "https://savannahseedlings.com",
-    "potentialAction": {
-      "@type": "SearchAction",
-      "target": "https://savannahseedlings.com/shop?search={search_term_string}",
-      "query-input": "required name=search_term_string"
-    }
-  };
-
-  const orgSchema = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "Savannah Seedlings",
-    "url": "https://savannahseedlings.com",
-    "logo": "https://savannahseedlings.com/favicon.png",
-    "contactPoint": {
-      "@type": "ContactPoint",
-      "telephone": "+254-710-583-989",
-      "contactType": "customer service",
-      "areaServed": "KE",
-      "availableLanguage": "en"
-    }
-  };
-
   return (
     <>
-      <SEO schemaData={[homeSchema, orgSchema]} />
+      <SEO />
       <div ref={homeRef} className="home-page">
       <section ref={heroRef} className="hero hero--photographic">
         <HeroBackground heroRef={heroRef} />

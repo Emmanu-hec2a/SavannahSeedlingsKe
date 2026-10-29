@@ -1,4 +1,6 @@
 import { Helmet } from 'react-helmet-async';
+import { useLayoutEffect } from 'react';
+import { getSocialIdentity, siteMetadata } from '../../data/siteMetadata.js';
 
 export default function SEO({
   title,
@@ -10,17 +12,25 @@ export default function SEO({
   noIndex = false,
   schemaData
 }) {
-  const siteName = 'Savannah Seedlings';
-  const defaultDescription = 'Seeding Africa for Sustainable fruit farming. Premium certified grafted fruit seedlings in Kenya including Hass Avocado, Pixie Orange, Kent Mango & Yellow Passion.';
-  const defaultKeywords = 'grafted seedlings Kenya, Hass Avocado seedlings, Pixie Orange seedlings, fruit seedlings Nairobi, Muranga nursery, Savannah Seedlings';
-  const defaultImage = 'https://savannahseedlings.com/og-image.png';
-  const siteUrl = 'https://savannahseedlings.com';
+  // React 19 hoists Helmet's tags but does not deduplicate against the static
+  // HTML shell. Only withdraw our own defaults, before paint, while this page
+  // owns metadata. Restore them when navigating to a page without an SEO owner.
+  // The persistent site-identity JSON-LD and favicon links are never touched.
+  useLayoutEffect(() => {
+    const defaults = [...document.head.querySelectorAll('[data-site-default]')];
+    defaults.forEach(node => node.remove());
+    return () => defaults.forEach(node => document.head.appendChild(node));
+  }, []);
 
-  const fullTitle = title ? `${title} | ${siteName}` : `Savannah Seedlings | Seeding Africa for Sustainable fruit farming`;
+  const { name: siteName, description: defaultDescription, keywords: defaultKeywords, image: defaultImage, url: siteUrl } = siteMetadata;
+  const { twitterSite } = getSocialIdentity();
+
+  const fullTitle = title ? `${title} | ${siteName}` : siteMetadata.title;
   const metaDescription = description || defaultDescription;
   const metaKeywords = keywords || defaultKeywords;
   const metaImage = image || defaultImage;
   const metaUrl = url ? `${siteUrl}${url}` : siteUrl;
+  const imageAlt = image ? fullTitle : siteMetadata.imageAlt;
 
   return (
     <Helmet>
@@ -34,17 +44,23 @@ export default function SEO({
       {/* Open Graph / Facebook */}
       <meta property="og:site_name" content={siteName} />
       <meta property="og:type" content={type} />
+      <meta property="og:locale" content={siteMetadata.locale} />
       <meta property="og:url" content={metaUrl} />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={metaDescription} />
       <meta property="og:image" content={metaImage} />
+      <meta property="og:image:alt" content={imageAlt} />
+      {!image && <meta property="og:image:width" content="1200" />}
+      {!image && <meta property="og:image:height" content="630" />}
 
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
+      {twitterSite && <meta name="twitter:site" content={twitterSite} />}
       <meta name="twitter:url" content={metaUrl} />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={metaDescription} />
       <meta name="twitter:image" content={metaImage} />
+      <meta name="twitter:image:alt" content={imageAlt} />
 
       {/* Structured Data */}
       {schemaData && (

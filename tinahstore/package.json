@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "generate:branding": "node --experimental-websocket scripts/generate-branding.mjs",
+    "test:seo": "node --experimental-websocket scripts/check-seo.mjs",
     "test:auth": "node scripts/check-auth.mjs",
     "test:errors": "node scripts/check-api-errors.mjs",
     "test:motion": "node scripts/check-scroll-reveals.mjs",
