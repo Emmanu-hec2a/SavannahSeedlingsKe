@@ -3,7 +3,7 @@ import ProductArt from './ProductArt.jsx';
 
 export default function ProductGallery({ product, color }) {
   const allImages = product.images || [];
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(() => Math.max(0, allImages.findIndex(image => image.is_primary)));
   const activeImage = allImages[activeIndex];
 
   return (
@@ -26,9 +26,11 @@ export default function ProductGallery({ product, color }) {
           {allImages.map((img, index) => (
             <button
               key={index}
+              type="button"
               className={`thumb ${index === activeIndex ? 'active' : ''}`}
               onClick={() => setActiveIndex(index)}
               aria-label={`View image ${index + 1} of ${product.name}`}
+              aria-pressed={index === activeIndex}
             >
               <img src={img.image} alt={`${product.name} thumbnail ${index + 1}`} className="product-image" />
             </button>

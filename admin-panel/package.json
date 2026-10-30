@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:product-images": "node scripts/check-product-images.mjs",
     "test:auth": "npm run build && node scripts/check-auth.mjs"
   },
   "dependencies": {

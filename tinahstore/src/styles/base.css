@@ -737,11 +737,13 @@ p{color:var(--ink)}
 
 /* ---------- product detail ---------- */
 .pd-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;padding:30px 0 0}
-.pd-gallery .main-shot{background:var(--teal-pale);border-radius:var(--radius-lg);aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;margin-bottom:14px;position:relative;overflow:hidden}
-.pd-gallery .main-shot .product-image { width: 100%; height: 100%; object-fit: cover; }
+.pd-layout>*{min-width:0}
+.pd-gallery{width:100%;max-width:100%;min-width:0}
+.pd-gallery .main-shot{width:100%;background:var(--teal-pale);border-radius:var(--radius-lg);aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;margin-bottom:14px;position:relative;overflow:hidden}
+.pd-gallery .main-shot .product-image{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .pd-gallery .sale-pill{position:absolute;top:18px;left:18px;z-index:10}
-.thumb-row{display:flex;gap:12px}
-.thumb{width:74px;height:74px;border-radius:var(--radius-md);background:var(--teal-pale);border:1.5px solid transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;padding:0}
+.pd-gallery .thumb-row{display:flex;gap:12px;width:100%;max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;padding:4px;scroll-padding-inline:4px;scrollbar-width:thin}
+.thumb{flex:0 0 74px;width:74px;height:74px;border-radius:var(--radius-md);background:var(--teal-pale);border:1.5px solid transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;padding:0}
 .thumb .product-image { width: 100%; height: 100%; object-fit: cover; }
 .thumb svg{width:60%;color:var(--teal-ink)}
 .thumb.active{border-color:var(--teal-ink)}
@@ -808,7 +810,7 @@ p{color:var(--ink)}
 .accordion-item.open .accordion-body{max-height:280px}
 .accordion-body p{font-size:14px;color:var(--muted);padding-bottom:18px;max-width:54ch}
 
-@media (max-width:900px){.pd-layout{grid-template-columns:1fr;gap:32px}}
+@media (max-width:900px){.pd-layout{grid-template-columns:minmax(0,1fr);gap:32px}}
 
 /* ---------- cart ---------- */
 .cart-layout{display:grid;grid-template-columns:1fr 360px;gap:48px;align-items:flex-start}

@@ -8,6 +8,7 @@ import { ChevronLeft, Plus, Save, Sprout } from 'lucide-react';
 import { productsService } from '../services/products';
 import { categoriesService } from '../services/categories';
 import { toast } from 'react-hot-toast';
+import { normalizePrimary, buildImageChanges, productSaveError } from '../services/productImages';
 
 const EMPTY_FORM = {
   name: '',
@@ -46,6 +47,14 @@ const ProductForm = () => {
 
   const [variants, setVariants] = useState([]);
   const [images, setImages]     = useState([]);
+  const [savedImageIds, setSavedImageIds] = useState([]);
+  const previewUrls = useRef(new Set());
+  const saving = useRef(false);
+
+  useEffect(() => () => {
+    previewUrls.current.forEach(url => URL.revokeObjectURL(url));
+    previewUrls.current.clear();
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -70,12 +79,14 @@ const ProductForm = () => {
             is_active:          data.is_active,
           });
           setImages(
-            (data.images ?? []).map(img => ({
+            normalizePrimary((data.images ?? []).map(img => ({
               id:      img.id,
               preview: img.image,
               file:    null,
-            }))
+              is_primary: img.is_primary,
+            })))
           );
+          setSavedImageIds((data.images ?? []).map(img => img.id));
           setVariants(
             (data.variants ?? []).map(v => ({ ...v, _key: nextKey() }))
           );
@@ -113,25 +124,37 @@ const ProductForm = () => {
     setVariants(prev => prev.filter(v => v._key !== key));
 
   const handleImageUpload = (files) => {
+    if (saving.current) return;
     const staged = Array.from(files).map(file => ({
       id:      null,
       preview: URL.createObjectURL(file),
       file,
     }));
-    setImages(prev => [...prev, ...staged]);
+    staged.forEach(image => previewUrls.current.add(image.preview));
+    setImages(prev => normalizePrimary([...prev, ...staged]));
     toast.success(`${files.length} image${files.length > 1 ? 's' : ''} staged`);
   };
 
   const handleImageRemove = (index) => {
-    setImages(prev => {
-      const removed = prev[index];
-      if (removed.file) URL.revokeObjectURL(removed.preview);
-      return prev.filter((_, i) => i !== index);
-    });
+    if (saving.current) return;
+    const removed = images[index];
+    if (!removed) return;
+    if (removed.file) {
+      URL.revokeObjectURL(removed.preview);
+      previewUrls.current.delete(removed.preview);
+    }
+    setImages(prev => normalizePrimary(prev.filter((_, i) => i !== index)));
+  };
+
+  const handleSetPrimary = (index) => {
+    if (saving.current) return;
+    setImages(prev => prev.map((image, i) => ({ ...image, is_primary: i === index })));
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (saving.current) return;
+    saving.current = true;
     setSaving(true);
 
     try {
@@ -153,6 +176,7 @@ const ProductForm = () => {
 
       const variantsForApi = variants.map(({ _key, ...rest }) => rest);
       data.append('variants_json', JSON.stringify(variantsForApi));
+      data.append('image_changes_json', JSON.stringify(buildImageChanges(images, savedImageIds)));
 
       images
         .filter(img => img.file !== null)
@@ -168,14 +192,9 @@ const ProductForm = () => {
 
       navigate('/products');
     } catch (err) {
-      const detail = err?.response?.data;
-      if (detail && typeof detail === 'object') {
-        const firstKey = Object.keys(detail)[0];
-        toast.error(`${firstKey}: ${detail[firstKey]}`);
-      } else {
-        toast.error('Failed to save seedling');
-      }
+      toast.error(productSaveError(err));
     } finally {
+      saving.current = false;
       setSaving(false);
     }
   };
@@ -192,13 +211,15 @@ const ProductForm = () => {
     <AdminLayout title={isEdit ? 'Edit Seedling' : 'Add New Seedling'}>
       <Link
         to="/products"
+        aria-disabled={isSaving}
+        onClick={event => { if (saving.current) event.preventDefault(); }}
         className="inline-flex items-center gap-2 text-sm font-medium text-neutral-500 hover:text-emerald-600 mb-6 transition-colors group"
       >
         <ChevronLeft size={16} className="transition-transform group-hover:-translate-x-1" />
         Back to Seedlings Catalog
       </Link>
 
-      <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
+      <form onSubmit={handleSave} aria-busy={isSaving} className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
 
         {/* Left column */}
         <div className="lg:col-span-2 space-y-8">
@@ -387,13 +408,17 @@ const ProductForm = () => {
               Seedling Photos
             </h3>
             <ImageUploadZone
-              previews={images.map(img => img.preview)}
+              previews={images}
               onUpload={handleImageUpload}
               onRemove={handleImageRemove}
+              onSetPrimary={handleSetPrimary}
+              disabled={isSaving}
             />
-            {images.length > 0 && (
+            <p className="text-xs text-neutral-500">Choose the photo customers see first. Photo removals and primary changes apply only when you save.</p>
+            {(images.length > 0 || savedImageIds.length > 0) && (
               <p className="text-xs text-neutral-400">
                 {images.filter(i => i.file).length} new photo(s) will be uploaded on save.
+                {' '}{savedImageIds.filter(id => !images.some(image => image.id === id)).length} saved photo(s) marked for removal.
               </p>
             )}
           </div>
@@ -410,7 +435,9 @@ const ProductForm = () => {
             </button>
             <Link
               to="/products"
-              className="btn btn-outline w-full py-3 bg-white text-center"
+              aria-disabled={isSaving}
+              onClick={event => { if (saving.current) event.preventDefault(); }}
+              className={`btn btn-outline w-full py-3 bg-white text-center ${isSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
             >
               Discard Changes
             </Link>

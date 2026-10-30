@@ -1,6 +1,13 @@
 from rest_framework import serializers
 from .models import Category, Product, ProductImage, ProductVariant
 
+
+def primary_image_url(product, request=None):
+    image = product.images.order_by('-is_primary', 'pk').first()
+    if not image:
+        return None
+    return request.build_absolute_uri(image.image.url) if request else image.image.url
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
@@ -9,7 +16,8 @@ class CategorySerializer(serializers.ModelSerializer):
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ['image', 'alt_text', 'is_primary']
+        fields = ['id', 'image', 'alt_text', 'is_primary']
+        read_only_fields = ['id']
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
@@ -51,15 +59,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'slug', 'category', 'category_slug', 'category_id', 'price', 'original_price', 'primary_image', 'is_active', 'stock', 'description', 'planting_procedure', 'material', 'rating', 'reviews']
 
     def get_primary_image(self, obj):
-        image = obj.images.filter(is_primary=True).first()
-        if not image:
-            image = obj.images.first()
-        if image:
-            request = self.context.get('request')
-            if request is not None:
-                return request.build_absolute_uri(image.image.url)
-            return image.image.url
-        return None
+        return primary_image_url(obj, self.context.get('request'))
 
     def get_rating(self, obj):
         from django.db.models import Avg
@@ -78,7 +78,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
-    images = ProductImageSerializer(many=True, read_only=True)
+    images = serializers.SerializerMethodField()
+    primary_image = serializers.SerializerMethodField()
     variants = ProductVariantSerializer(many=True, read_only=True)
     rating = serializers.SerializerMethodField()
     reviews = serializers.SerializerMethodField()
@@ -88,8 +89,14 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'slug', 'category', 'category_id', 'description', 'planting_procedure', 'price',
             'original_price', 'material', 'is_active', 'stock', 
-            'created_at', 'updated_at', 'images', 'variants', 'rating', 'reviews'
+            'created_at', 'updated_at', 'images', 'primary_image', 'variants', 'rating', 'reviews'
         ]
+
+    def get_images(self, obj):
+        return ProductImageSerializer(obj.images.order_by('pk'), many=True, context=self.context).data
+
+    def get_primary_image(self, obj):
+        return primary_image_url(obj, self.context.get('request'))
 
     def get_rating(self, obj):
         from django.db.models import Avg

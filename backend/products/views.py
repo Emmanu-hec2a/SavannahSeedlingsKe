@@ -11,7 +11,8 @@ from django.views.decorators.cache import cache_page
 from django.shortcuts import get_object_or_404
 from .models import Category, Product
 from .serializers import CategorySerializer, ProductListSerializer, ProductDetailSerializer
-from .saves import validate_batches, prepare_images, close_images, save_batches, save_images, cleanup_uploads
+from .saves import (validate_batches, prepare_images, close_images, save_batches, save_images,
+                    cleanup_uploads, validate_image_changes, apply_image_changes)
 
 
 from django.core.files.storage import default_storage
@@ -80,13 +81,16 @@ class ProductListView(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         batches = validate_batches(data)
-        images = prepare_images(request.FILES.getlist('images'))
+        files = request.FILES.getlist('images')
+        changes = validate_image_changes(data, len(files))
+        images = prepare_images(files)
         uploads = []
         try:
             with transaction.atomic():
                 product = serializer.save()
                 save_batches(product, batches)
-                save_images(product, images, uploads)
+                created = save_images(product, images, uploads)
+                apply_image_changes(product, changes, created)
                 response_data = serializer.data
                 headers = self.get_success_headers(response_data)
             return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
@@ -124,10 +128,13 @@ class ProductDetailView(ProtectOrderedInventory, generics.RetrieveUpdateDestroyA
                 serializer = self.get_serializer(instance, data=data, partial=partial)
                 serializer.is_valid(raise_exception=True)
                 batches = validate_batches(data, instance)
-                images = prepare_images(request.FILES.getlist('images'))
+                files = request.FILES.getlist('images')
+                changes = validate_image_changes(data, len(files), instance)
+                images = prepare_images(files)
                 self.perform_update(serializer)
                 save_batches(instance, batches)
-                save_images(instance, images, uploads)
+                created = save_images(instance, images, uploads)
+                apply_image_changes(instance, changes, created)
                 if getattr(instance, '_prefetched_objects_cache', None):
                     instance._prefetched_objects_cache = {}
                 response_data = serializer.data

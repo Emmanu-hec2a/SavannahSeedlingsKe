@@ -10,7 +10,7 @@ import {homeStats, homeStatsNotice} from '../../tinahstore/src/data/homeStats.js
 
 const backend = new URL(process.argv[2]);
 const focus = process.env.ADMIN_ACTIONS_FOCUS || 'all';
-if (!['all', 'catalog-delivery', 'nursery-motion', 'catalog-sync', 'navigation-legal', 'checkout-signup'].includes(focus)) throw Error('Unknown admin-action test focus');
+if (!['all', 'catalog-delivery', 'nursery-motion', 'catalog-sync', 'navigation-legal', 'checkout-signup', 'product-images'].includes(focus)) throw Error('Unknown admin-action test focus');
 if (process.env.RUN_ADMIN_BROWSER_TESTS !== '1' || backend.protocol !== 'http:' ||
     !['localhost', '127.0.0.1'].includes(backend.hostname) || !backend.port) {
   throw Error('Only the opted-in disposable local Django test server is allowed.');
@@ -55,7 +55,7 @@ const focus=${JSON.stringify(focus)};
 const expectedStats=${JSON.stringify(homeStats)};
 const expectedStatsNotice=${JSON.stringify(homeStatsNotice)};
 const processScreenshots=${process.env.NURSERY_QA_SCREENSHOTS === '1'};
-const deferred=['clear original price removes storefront sale price','remove photo does not submit form and persists on save'];
+const deferred=['clear original price removes storefront sale price'];
 const catalogChecks=new Set([
  'real staff login',
  'create category through admin and expose it through public API',
@@ -376,6 +376,118 @@ async function passwordForm(old,next,confirm=next){
   await load('/login',()=>doc().getElementById('admin-username'));await login(originalPassword);
   await until(()=>text().includes('Recent Orders'),'dashboard');
  });
+ if(focus==='product-images'){
+  const photos=()=>[...doc().querySelectorAll('[data-product-photo]')];
+  const primaryButtons=()=>photos().map(photo=>photo.querySelector('button[aria-pressed]'));
+  const removeButtons=()=>photos().map(photo=>photo.querySelector('button[title="Remove"]'));
+  const writes=()=>requests.filter(row=>['POST','PATCH'].includes(row.method)&&row.path.startsWith('/api/v1/products/')).length;
+  let savedIds=[],primaryUrl;
+  await test('choose primary and remove staged uploads without submitting create form',async()=>{
+   await load('/products/new',()=>field('Seedling Variety Name'));
+   set(field('Seedling Variety Name'),'QA Browser Seedling');set(field('Description'),'QA image selection fixture');
+   await until(()=>field('Fruit Category').options.length>1,'categories');
+   set(field('Fruit Category'),field('Fruit Category').options[1].value);set(field('Price per Seedling'),'350');
+   button('Add Batch').click();await pause(60);set(field('Size'),'Regular');set(field('Stock'),'17');
+   const before=writes();
+   await upload('#2e7d32','one.png');await upload('#e67e22','two.png');await upload('#1565c0','three.png');
+   primaryButtons()[2].click();await pause(60);removeButtons()[0].click();await pause(60);
+   assert(photos().length===2&&primaryButtons()[1].getAttribute('aria-pressed')==='true','Staged primary was lost after removing earlier upload');
+   assert(writes()===before,'Photo controls submitted the create form');
+   await saveProduct();const saved=await api('/products/qa-browser-seedling/');
+   savedIds=saved.data.images.map(photo=>photo.id);primaryUrl=saved.data.primary_image;
+   assert(savedIds.length===2&&savedIds.every(Number.isInteger),'Image IDs missing');
+   assert(saved.data.images[1].is_primary&&!saved.data.images[0].is_primary,'Chosen new primary was not saved');
+  });
+  await test('chosen primary appears on catalog cards and opens first in product gallery',async()=>{
+   await load('/shop',()=>doc().querySelector('.product-card'));
+   assert(doc().querySelector('.product-card img.product-image').src===primaryUrl,'Catalog uses another photo');
+   await load('/product/qa-browser-seedling',()=>doc().querySelector('.main-shot img'));
+   assert(doc().querySelector('.main-shot img').src===primaryUrl,'Gallery ignored primary');
+   assert(doc().querySelectorAll('.thumb')[1].getAttribute('aria-pressed')==='true','Wrong thumbnail selected');
+  });
+  await test('discarding saved-photo removals and primary changes leaves backend unchanged',async()=>{
+   await edit();const before=writes();primaryButtons()[0].click();await pause(40);removeButtons()[1].click();await pause(40);
+   [...doc().querySelectorAll('a')].find(link=>link.textContent.trim()==='Discard Changes').click();
+   await until(inventory,'discard returns to inventory');
+   const saved=await api('/products/qa-browser-seedling/');
+   assert(writes()===before&&saved.data.images.length===2&&saved.data.primary_image===primaryUrl,'Discard changed saved photos');
+  });
+  await test('saved primary can be changed without uploading or deleting other photos',async()=>{
+   await edit();primaryButtons()[0].click();await pause(40);await saveProduct();
+   const saved=await api('/products/qa-browser-seedling/');primaryUrl=saved.data.primary_image;
+   assert(saved.data.images[0].is_primary&&saved.data.images.length===2,'Saved-photo primary selection failed');
+  });
+  await test('pending saves disable photo actions and block duplicate submissions',async()=>{
+   await edit();const before=writes();
+   await fetch('/__photo-save-delay?ms=600');
+   try{
+    const form=doc().querySelector('form');form.requestSubmit();form.requestSubmit();
+    await until(()=>primaryButtons().every(button=>button.disabled)&&removeButtons().every(button=>button.disabled),'pending photo actions disabled');
+    removeButtons()[0].click();assert(photos().length===2,'Pending removal changed photos');
+    const discard=[...doc().querySelectorAll('a')].find(link=>link.textContent.trim()==='Discard Changes');
+    assert(discard.getAttribute('aria-disabled')==='true','Discard looks available during a save');
+    discard.click();assert(doc().querySelector('form'),'Discard navigated away during a pending save');
+    await until(inventory,'pending save completed');
+    assert(writes()===before+1,'Duplicate product updates were submitted');
+   }finally{await fetch('/__photo-save-delay?ms=0');}
+  });
+  await test('invalid replacement preserves existing photos primary stock and entered form values',async()=>{
+   await edit();removeButtons()[0].click();await pause(50);set(field('Description'),'QA unsaved image failure text');
+   const transfer=new frame.contentWindow.DataTransfer();
+   transfer.items.add(new frame.contentWindow.File(['not an image'],'broken.png',{type:'image/png'}));
+   const input=doc().querySelector('input[type=file]');input.files=transfer.files;
+   input.dispatchEvent(new frame.contentWindow.Event('change',{bubbles:true}));await pause(60);
+   primaryButtons()[1].click();await pause(40);const start=requests.length;await submit(doc().querySelector('form'));
+   await until(()=>requests.slice(start).some(row=>row.method==='PATCH'&&row.status===400),'invalid image rejected');
+   await until(()=>text().includes('Upload a valid, readable product image.'),'readable upload error');
+   assert(field('Description').value==='QA unsaved image failure text'&&photos().length===2,'Form was cleared on failed save');
+   const saved=await api('/products/qa-browser-seedling/');
+   assert(saved.data.images.map(photo=>photo.id).join(',')===savedIds.join(',')&&saved.data.primary_image===primaryUrl,'Failed upload changed saved photos');
+   assert(saved.data.stock===17&&saved.data.description==='QA image selection fixture','Failed upload changed metadata or stock');
+  });
+  await test('new primary and saved-photo removal persist together without an implicit submit',async()=>{
+   await edit();const before=writes();await upload('#ffb300','replacement.png');
+   primaryButtons()[2].click();await pause(40);removeButtons()[1].click();await pause(40);
+   assert(writes()===before,'Saved-photo Remove submitted the form');
+   await saveProduct();const saved=await api('/products/qa-browser-seedling/');
+   assert(saved.data.images.length===2&&!saved.data.images.some(photo=>photo.id===savedIds[1]),'Saved-photo removal did not persist');
+   assert(saved.data.images[1].is_primary,'New primary was lost during removal');
+   savedIds=saved.data.images.map(photo=>photo.id);primaryUrl=saved.data.primary_image;
+  });
+  await test('updated primary reaches storefront after real API save',async()=>{
+   await load('/product/qa-browser-seedling',()=>doc().querySelector('.main-shot img'));
+   assert(doc().querySelector('.main-shot img').src===primaryUrl,'Storefront retained old primary');
+   assert(doc().querySelectorAll('.thumb').length===2,'Storefront retained deleted photo');
+  });
+  await test('photo controls remain visible and usable at mobile widths',async()=>{
+   for(const width of [320,390,1280]){
+    await load('/products/qa-browser-seedling/edit',editReady,width,1000);
+    for(const control of [...primaryButtons(),...removeButtons()]){
+     const rect=control.getBoundingClientRect(),style=frame.contentWindow.getComputedStyle(control);
+     assert(rect.height>=44&&rect.left>=0&&rect.right<=width,'Photo control outside viewport or undersized');
+     assert(style.opacity==='1'&&style.display!=='none'&&control.type==='button','Photo action is hidden or submits');
+    }
+    if(processScreenshots&&width!==320){
+     photos()[0].closest('.card').scrollIntoView({block:'center',behavior:'instant'});await pause(120);
+     await fetch('/__screenshot?name=product-images-'+width+'&width='+width+'&height=1000');
+    }
+   }
+  });
+  await test('removing the primary automatically promotes the first remaining saved photo',async()=>{
+   await edit();removeButtons()[1].click();await pause(50);
+   assert(primaryButtons()[0].getAttribute('aria-pressed')==='true','UI did not choose fallback primary');
+   await saveProduct();const saved=await api('/products/qa-browser-seedling/');
+   assert(saved.data.images.length===1&&saved.data.images[0].is_primary,'Fallback primary was not saved');
+  });
+  await test('removing the last photo saves an empty gallery and storefront placeholder',async()=>{
+   await edit();removeButtons()[0].click();await pause(50);await saveProduct();
+   const saved=await api('/products/qa-browser-seedling/');assert(saved.data.images.length===0&&saved.data.primary_image===null,'Last photo remained saved');
+   await load('/product/qa-browser-seedling',()=>doc().querySelector('.main-shot svg'));
+   assert(!doc().querySelector('.thumb-row')&&doc().querySelector('.stock-note').textContent.includes('17 seedlings'),'Placeholder or stock changed');
+  });
+  document.getElementById('results').textContent=JSON.stringify({focus,results,errors,failedRequests:requests.filter(row=>row.status>=400)});
+  return;
+ }
  if(focus==='catalog-sync'){
   await test('create category through admin and expose it through public API',async()=>{
    await load('/categories',()=>field('Category Name'));
@@ -1001,10 +1113,13 @@ async function passwordForm(old,next,confirm=next){
 </script>`;
 
 const upstreams=new Set();
-let sendCommand, nurseryFailure=false, catalogFailure=false, categoriesFailure=false;
+let sendCommand, nurseryFailure=false, catalogFailure=false, categoriesFailure=false, photoSaveDelay=0;
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
+    if(focus==='product-images'&&url.pathname==='/__photo-save-delay'){
+      photoSaveDelay=Math.min(1000,Math.max(0,Number(url.searchParams.get('ms'))||0));res.end('OK');return;
+    }
     if(url.pathname==='/__keyboard-tab'){
       await sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
       await sendCommand('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
@@ -1034,7 +1149,7 @@ const server = createServer(async (req, res) => {
       const shot=await sendCommand('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,
         clip:{x:8,y:0,width:Number(url.searchParams.get('width')),height:Number(url.searchParams.get('height')),scale:1}});
       const name=url.searchParams.get('name');
-      if(!/^(gallery-(light|dark)|(catalog|stats|services)-(light|dark)-(390|1280)|menu-(light|dark)-(320|390)|privacy-(light|dark)-390)$/.test(name))throw Error('Unknown screenshot');
+      if(!/^(gallery-(light|dark)|(catalog|stats|services)-(light|dark)-(390|1280)|menu-(light|dark)-(320|390)|privacy-(light|dark)-390|product-images-(390|1280))$/.test(name))throw Error('Unknown screenshot');
       const filename=path.join(profile,name+'.png');await writeFile(filename,Buffer.from(shot.data,'base64'));
       console.log('QA screenshot: '+filename);res.end('OK');return;
     }
@@ -1050,6 +1165,7 @@ const server = createServer(async (req, res) => {
       res.setHeader('Content-Type', 'text/html');res.end(page);return;
     }
     if (url.pathname.startsWith('/api/v1/') || url.pathname.startsWith('/media/')) {
+      if(focus==='product-images'&&photoSaveDelay&&req.method==='PATCH'&&url.pathname==='/api/v1/products/qa-browser-seedling/')await pause(photoSaveDelay);
       const upstream = httpRequest(new URL(req.url, backend), {
         method:req.method, agent:false, headers:{...req.headers, host:backend.host},
       }, response => {

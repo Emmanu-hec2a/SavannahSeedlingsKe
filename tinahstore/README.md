@@ -117,3 +117,22 @@ The planting card uses theme colors and has no fixed-height truncation. Run
 `npm run build` followed by `npm run test:product-copy` for parser and isolated
 mobile/desktop browser checks. Add `-- --screenshots` for optional local review
 images. Tests use disposable fixtures and never save live products or orders.
+
+## Product gallery sizing
+
+The gallery and both product grid columns can shrink to the available width.
+The main image remains in the existing square frame with `object-fit: cover`;
+image dimensions cannot enlarge that frame. No uploaded photos are resized,
+replaced or cropped on the server.
+
+Thumbnails stay 74px square in an independently scrollable row. Mobile users
+can swipe it; keyboard users can tab to offscreen thumbnails and activate them.
+The selected button exposes `aria-pressed`, and inset padding keeps focus rings
+inside the scrolling region. Page gutters and surrounding spacing are retained.
+
+The old layout was reproduced expanding past the mobile viewport with a long
+thumbnail row, while individual very wide/tall JPEGs remained bounded. Run
+`npm run build` and `npm run test:product-gallery` for local generated-JPEG
+fixtures, five/18-photo galleries, selection stability, keyboard/touch scrolling,
+theme and placeholder checks. Add `-- --screenshots` for review images. No global
+overflow hiding is used; no live product data, orders or deployments are changed.

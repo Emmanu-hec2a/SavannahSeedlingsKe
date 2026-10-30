@@ -10,6 +10,7 @@
     "generate:branding": "node --experimental-websocket scripts/generate-branding.mjs",
     "test:seo": "node --experimental-websocket scripts/check-seo.mjs",
     "test:product-copy": "node --experimental-websocket scripts/check-product-copy.mjs",
+    "test:product-gallery": "node --experimental-websocket scripts/check-product-gallery.mjs",
     "test:auth": "node scripts/check-auth.mjs",
     "test:errors": "node scripts/check-api-errors.mjs",
     "test:motion": "node scripts/check-scroll-reveals.mjs",

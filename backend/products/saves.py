@@ -9,6 +9,7 @@ import warnings
 from django.core.files.base import ContentFile
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
+from django.db import transaction
 from django.utils.text import slugify
 from PIL import Image
 from rest_framework import serializers
@@ -129,6 +130,7 @@ def save_batches(product, batches):
 
 def save_images(product, images, uploads):
     field = ProductImage._meta.get_field('image')
+    created = []
     for content in images:
         photo = ProductImage(product=product)
         storage = photo.image.storage
@@ -152,6 +154,93 @@ def save_images(product, images, uploads):
             uploads.append((storage, saved_name))
         photo.image = saved_name
         photo.save()
+        created.append(photo)
+    return created
+
+
+class ImageSelectionSerializer(serializers.Serializer):
+    id = serializers.IntegerField(required=False, min_value=1)
+    upload_index = serializers.IntegerField(required=False, min_value=0)
+
+    def validate(self, attrs):
+        if len(attrs) != 1:
+            raise serializers.ValidationError('Choose exactly one saved photo ID or new-upload index.')
+        return attrs
+
+
+class ImageChangesSerializer(serializers.Serializer):
+    remove_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), default=list)
+    primary = ImageSelectionSerializer(required=False, allow_null=True)
+
+
+def validate_image_changes(data, upload_count, product=None):
+    """Explicit removals only: omitted photos must never imply deletion."""
+    if 'image_changes_json' not in data:
+        return None
+    raw = data.get('image_changes_json')
+    try:
+        values = json.loads(raw) if isinstance(raw, str) else raw
+    except (ValueError, TypeError, RecursionError):
+        raise serializers.ValidationError({'image_changes_json': 'Enter valid photo changes.'})
+    if not isinstance(values, dict) or set(values) - {'remove_ids', 'primary'}:
+        raise serializers.ValidationError({'image_changes_json': 'Photo changes must contain only remove_ids and primary.'})
+    selection = values.get('primary')
+    if selection is not None and (not isinstance(selection, dict) or set(selection) - {'id', 'upload_index'}):
+        raise serializers.ValidationError({'image_changes_json': 'Choose a saved photo ID or new-upload index.'})
+    serializer = ImageChangesSerializer(data=values)
+    if not serializer.is_valid():
+        raise serializers.ValidationError({'image_changes_json': serializer.errors})
+    changes = serializer.validated_data
+    removed = changes['remove_ids']
+    if len(removed) != len(set(removed)):
+        raise serializers.ValidationError({'image_changes_json': 'A photo can only be removed once.'})
+    # Callers already hold the product lock (or are creating a fresh product).
+    existing = list(product.images.select_for_update().order_by('pk')) if product else []
+    ids = {photo.pk for photo in existing}
+    if not set(removed).issubset(ids):
+        raise serializers.ValidationError({'image_changes_json': 'A removed photo no longer exists or belongs to another product. Reload this product.'})
+    remaining = ids - set(removed)
+    if 'primary' in changes:
+        primary = changes['primary']
+        if primary is None:
+            if remaining or upload_count:
+                raise serializers.ValidationError({'image_changes_json': 'Choose a primary photo while this product has photos.'})
+        elif 'id' in primary:
+            if primary['id'] not in remaining:
+                raise serializers.ValidationError({'image_changes_json': 'The primary photo must belong to this product and must not be removed.'})
+        elif primary['upload_index'] >= upload_count:
+            raise serializers.ValidationError({'image_changes_json': 'The selected new primary photo is missing from this upload.'})
+    return changes
+
+
+def cleanup_removed_images(files):
+    """Post-commit only. Shared legacy keys remain; cleanup failures are logged."""
+    for storage, name in files:
+        try:
+            if name and not ProductImage.objects.filter(image=name).exists():
+                storage.delete(name)
+        except Exception:
+            logger.exception('Removed product photo needs storage cleanup: %s', name)
+
+
+def apply_image_changes(product, changes, created):
+    removed = changes['remove_ids'] if changes else []
+    files = [(photo.image.storage, photo.image.name) for photo in product.images.filter(pk__in=removed)]
+    if removed:
+        product.images.filter(pk__in=removed).delete()
+    selection = changes.get('primary') if changes else None
+    if selection:
+        primary_id = selection.get('id') or created[selection['upload_index']].pk
+    else:
+        # Preserve the existing primary for old clients. Deleting it promotes
+        # the first remaining photo; old multiple/zero-primary states normalize.
+        first = product.images.order_by('-is_primary', 'pk').first()
+        primary_id = first.pk if first else None
+    product.images.exclude(pk=primary_id).update(is_primary=False)
+    if primary_id:
+        product.images.filter(pk=primary_id).update(is_primary=True)
+    if files:
+        transaction.on_commit(lambda: cleanup_removed_images(files))
 
 
 def cleanup_uploads(uploads):
