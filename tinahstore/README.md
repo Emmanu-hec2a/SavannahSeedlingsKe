@@ -103,3 +103,17 @@ fallbacks use the existing section-reveal behavior.
 Run `npm run test:services` for the content/link checks. The isolated
 `catalog-sync` browser suite also checks placement, accessibility, spacing, and
 both themes from 320px through 1280px; it never opens or sends WhatsApp messages.
+
+## Product descriptions and planting guides
+
+These admin fields remain plain text. The storefront preserves single line
+breaks and uses blank lines to separate paragraphs. Start each list item on a
+new line with `1.`, `2)`, `-`, `*`, or a bullet symbol. Numbered steps retain the
+author's numbers; indented continuation lines stay with their list item. HTML
+is displayed as literal text, never executed. Existing saved content is not
+rewritten and no backend migration is needed.
+
+The planting card uses theme colors and has no fixed-height truncation. Run
+`npm run build` followed by `npm run test:product-copy` for parser and isolated
+mobile/desktop browser checks. Add `-- --screenshots` for optional local review
+images. Tests use disposable fixtures and never save live products or orders.

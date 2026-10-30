@@ -7,6 +7,7 @@ import HangTag from '../components/ui/HangTag.jsx';
 import Stepper from '../components/ui/Stepper.jsx';
 import ProductCard from '../components/product/ProductCard.jsx';
 import ProductGallery from '../components/product/ProductGallery.jsx';
+import ProductCopy from '../components/product/ProductCopy.jsx';
 import RatingStars from '../components/ui/RatingStars.jsx';
 import SizePicker from '../components/product/SizePicker.jsx';
 import { WishlistContext } from '../context/WishlistContext.jsx';
@@ -112,7 +113,7 @@ export default function ProductDetail() {
     `Hello Savannah Seedlings, I would like to order ${quantity}x ${product.name} (KES ${product.price} each). Please advise on delivery.`
   );
 
-  const defaultPlantingProcedure = product.planting_procedure ||
+  const defaultPlantingProcedure = product.planting_procedure?.trim() ? product.planting_procedure :
     `1. Dig a hole measuring 2ft x 2ft x 2ft (60cm x 60cm x 60cm).\n2. Separate topsoil from subsoil and mix topsoil with well-rotted manure (15-20kg).\n3. Carefully remove the plastic sleeve without disturbing the root ball.\n4. Place the seedling graft union 2-3 inches above ground level.\n5. Water thoroughly immediately after planting (20 liters) and mulch to conserve moisture.`;
 
   return (
@@ -153,7 +154,7 @@ export default function ProductDetail() {
               <span className="muted" style={{ fontSize: 13 }}>{formatKes(product.price)} / seedling</span>
             </div>
 
-            <p className="pd-desc">{product.description}</p>
+            <ProductCopy text={product.description} className="pd-desc" />
 
             <div className="qty-row">
               <Stepper value={quantity} onChange={setQuantity} />
@@ -203,15 +204,13 @@ export default function ProductDetail() {
               <div className="trust-item"><Icon name="leaf" /><span style={{ fontSize: 12.5 }}>Certified Grafted</span></div>
             </div>
 
-            <div id="planting-procedure" style={{ marginTop: 20 }}>
-              <div style={{ background: '#e8f5e9', border: '1px solid #c8e6c9', padding: '16px', borderRadius: '8px', marginBottom: '20px' }}>
-                <h4 style={{ color: '#1b5e20', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', margin: 0, fontSize: '15px' }}>
+            <div id="planting-procedure" className="pd-details">
+              <section className="pd-care" aria-labelledby="planting-procedure-title">
+                <h2 id="planting-procedure-title" className="pd-care-title">
                   <Icon name="leaf" /> Planting & Care Procedure
-                </h4>
-                <div style={{ marginTop: '10px', fontSize: '13.5px', color: '#2e7d32', whitespace: 'pre-line', lineHeight: '1.6' }}>
-                  {defaultPlantingProcedure}
-                </div>
-              </div>
+                </h2>
+                <ProductCopy text={defaultPlantingProcedure} />
+              </section>
 
               <Accordion items={[
                 {
